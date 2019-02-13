@@ -84,24 +84,23 @@ def sort_edges(weights, locations):
     return edges
 
 
-def evaluate_mst(mst):
+def evaluate_solution(solution):
     """
     Evaluate the cost of the graph object
     in mst
     """
-    edges = mst.get_edges()
+    edges = solution.get_edges()
     return np.sum([val for key, val in edges.items()])
 
 
 def mst_kruskal(locations, weights):
-    g = Graph(locations=locations, weights=weights)
     mst = Graph()
 
     edges = sort_edges(weights, locations)
 
     parent = {}
     rank = {}
-    for vert in g.get_vertices():
+    for vert in locations.keys():
         parent[vert] = vert
         rank[vert] = 0
 

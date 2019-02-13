@@ -17,8 +17,14 @@ class Vertex():
     def add_neighbor(self, neighbor, weight=0):
         self.adjacent[neighbor] = weight
 
-    def get_connections(self):
-        return self.adjacent.keys()
+    def get_connections(self, sort=False):
+        if not sort:
+            return self.adjacent.keys()
+        else:
+            return sorted(self.adjacent, key=self.adjacent.get)
+
+    def get_nearest(self):
+        return min(self.adjacent, key=self.adjacent.get)
 
     def get_location(self):
         return self.location
@@ -29,11 +35,19 @@ class Vertex():
     def get_weight(self, neighbor):
         return self.adjacent[neighbor]
 
+    def delete_edge(self, neighbor):
+        if neighbor in self.adjacent.keys():
+            del self.adjacent[neighbor]
+            return True
+        else:
+            return False
+
 
 class Graph:
     def __init__(self, **kwargs):
         self.vert_dict = {}
         self.num_vertices = 0
+        self.adding_order = []
         if "locations" in kwargs.keys() and "weights" in kwargs.keys():
             locations = kwargs['locations']
             weights = kwargs['weights']
@@ -46,6 +60,7 @@ class Graph:
         self.num_vertices = self.num_vertices + 1
         new_vertex = Vertex(node, location)
         self.vert_dict[node] = new_vertex
+        self.adding_order.append(node)
         return new_vertex
 
     def get_vertex(self, n):
@@ -62,13 +77,37 @@ class Graph:
 
         self.vert_dict[frm].add_neighbor(self.vert_dict[to], weight)
         self.vert_dict[to].add_neighbor(self.vert_dict[frm], weight)
+        return True
 
     def get_vertices(self):
         return self.vert_dict.keys()
 
+    def delete_vertex(self, vert_id):
+        """
+        To delete a vertex, first delete all the edges
+        in which the vertex is included. 
+        This implementation requires symmetric graphs. 
+        """
+        vert = self.get_vertex(vert_id)
+        if vert is None:
+            return False
+        else:
+            for neighbor in vert.get_connections():
+                neighbor.delete_edge(vert)
+            del self.vert_dict[vert_id]
+            self.num_vertices -= 1
+            return True
+
+    def get_edge_weight(self, n1, n2):
+        v1 = self.get_vertex(n1)
+        v2 = self.get_vertex(n2)
+        weight = v1.get_weight(v2)
+        return weight
+
     def get_edges(self):
         """
         Returns the edges arranged in a dictionary
+        Note: Each edge is counted just once.
         """
         edges = {}
         for vert in iter(self):
