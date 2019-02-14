@@ -134,3 +134,23 @@ class Graph:
         for key, weight in weights.items():
             self.add_edge(key[0], key[1], weight)
         return True
+
+    def build_graph_solution(self, order):
+        g = Graph()
+        start = order[0]
+        l = self.get_vertex(start).get_location()
+        g.add_vertex(start, l)
+        for i in range(1, len(order)):
+            # Add vertex
+            n = order[i]
+            loc = self.get_vertex(n).get_location()
+            g.add_vertex(n, loc)
+            # Add relative edges
+            p = order[i-1]
+            w = self.get_edge_weight(n, p)
+            g.add_edge(n, p, w)
+            g.add_edge(p, n, w)
+        w = self.get_edge_weight(order[0], order[-1])
+        g.add_edge(order[0], order[-1], w)
+        g.add_edge(order[-1], order[0], w)
+        return g

@@ -74,10 +74,15 @@ class Environment():
         """
         return self.problem_instance
 
-    def render(self, g):
+    def render(self, *gg):
         """
         function to plot the graph g 
         """
+        try:
+            g = gg[0]
+        except:
+            print('At least one argument is needed!')
+            return
         vertices = g.get_vertices()
         locations = []
         deposits = []
@@ -92,6 +97,7 @@ class Environment():
         locations = np.array(locations)
         deposits = np.array(deposits)
         fig, ax = plt.subplots()
+
         ax.scatter(
             locations[:, 0], locations[:, 1],
             color='blue')  # , s=5*s)
@@ -99,10 +105,12 @@ class Environment():
             deposits[:, 0], deposits[:, 1],
             color='red'
         )
-        edges = g.get_edges()
-        edges = [[g.get_vertex(k[0]).get_location(),
-                  g.get_vertex(k[1]).get_location()]
-                 for k in edges.keys()]
-        lines = mc.LineCollection(edges, linewidths=1)
-        ax.add_collection(lines)
+        color_list = ['green', 'orange', 'purple', 'yellow']
+        for i, g in enumerate(gg):
+            edges = g.get_edges()
+            edges = [[g.get_vertex(k[0]).get_location(),
+                      g.get_vertex(k[1]).get_location()]
+                     for k in edges.keys()]
+            lines = mc.LineCollection(edges, linewidths=1, color=color_list[i])
+            ax.add_collection(lines)
         return edges
