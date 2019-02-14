@@ -1,30 +1,24 @@
-import math
-import matplotlib.pyplot as plt
 import random
-import algos
-from graph import Graph
 import numpy as np
-import environment
+import matplotlib.pyplot as plt
+from objects.graph import Graph
+from objects.solver import Solver
+from algorithms import algos
 
 
 def approximate_traveling_salesman(locations, weights, start=None):
     """
-    Before implementing a simulated annealing,
-    I will find a suboptimal solution,
-    implementing the following heuristic:
-    Start from a node and pick the closest one,
-    that has not been considered yet.
+    Approximation to TSP: Start from a location and pick nearest location
+    yet to be added.
     """
-    # Build a utility graph. This is highly inefficient
-    # but this function is supposed to be used only once
+    # Highly inefficient, used only at the beginning of
+    #  simulated annealing.
     # [TODO]: Implement a copy method for graphs
     g = Graph(locations=locations, weights=weights)
     total_vertices = len(locations)
 
-    # Initialize an empty graph for the solution
     heuristic = Graph()
 
-    # Initialize the starting point
     if start is None:
         start = next(iter(g)).get_id()
     heuristic.add_vertex(start, g.get_vertex(start).get_location())
@@ -46,10 +40,22 @@ def approximate_traveling_salesman(locations, weights, start=None):
     return heuristic
 
 
-class SimAnneal():
-    def __init__(self, locations, edges, T=None, alpha=None,
-                 stopping_T=None, stopping_iter=None, start=None,
+class SimAnneal(Solver):
+    def __init__(self, locations, edges, T=None, alpha=0.995,
+                 stopping_T=1e-6, stopping_iter=1e5, start=None,
                  start_solution=None):
+        """
+        Solver for simulated annealing. 
+        Start from an approximate solution and propose moves.
+        Approximate solution: chose vertex and pick the next
+        Args: 
+            locations(dict):{name:(x,y)}
+            edges(dict):{('from','to'):weight}
+            T(float): Starting temp, otherwise <w(approximated_sol)>.
+            stopping_iter(int): maximum iteration 
+            start(str): vert to start from
+            start_solution(list):['v1','v2',...] order of visit of vertices
+        """
         self.locations = locations
         self.N = len(locations)
         self.edges = edges
@@ -59,10 +65,10 @@ class SimAnneal():
 
         # We need a temperature scale if this is not given:
         # one possibility is the average distance between two edges
-        self.alpha = 0.995 if alpha is None else alpha
+        self.alpha = alpha
         assert self.alpha < 1.
-        self.stopping_T = 1e-8 if stopping_T is None else stopping_T
-        self.stopping_iter = 1e5 if stopping_iter is None else stopping_iter
+        self.stopping_T = stopping_T
+        self.stopping_iter = stopping_iter
         self.iter = 1
 
         # Initialize the best solution to the one of the greedy algo
@@ -76,7 +82,7 @@ class SimAnneal():
         # which in turns depends on the number of points
         self.curr_order = self.curr_solution.adding_order
         self.curr_solution_val = algos.evaluate_solution(
-            self._build_graph(self.curr_order))
+            self.graph.build_graph_solution(self.curr_order))
         edges = self.curr_solution.get_edges()
         self.T = T if T is not None else sum(
             [v for k, v in edges.items()])/len(edges.items())/2
@@ -85,28 +91,6 @@ class SimAnneal():
         self.T_start = self.T
         self.fitness_list = [self.curr_solution_val]
         self.best_list = [self.curr_solution_val]
-
-    def _build_graph(self, order=None):
-        g = Graph()
-        if order is None:
-            order = self.curr_order[:]
-        start = order[0]
-        l = self.locations[start]
-        g.add_vertex(start, l)
-        for i in range(1, len(order)):
-            # Add vertex
-            n = order[i]
-            loc = self.locations[n]
-            g.add_vertex(n, loc)
-            # Add relative edges
-            p = order[i-1]
-            w = self.edges[(n, p)]
-            g.add_edge(n, p, w)
-            g.add_edge(p, n, w)
-        w = self.edges[(order[0], order[-1])]
-        g.add_edge(order[0], order[-1], w)
-        g.add_edge(order[-1], order[0], w)
-        return g
 
     def _p_accept(self, cost):
         """
@@ -125,13 +109,14 @@ class SimAnneal():
             else:
                 return False
 
-    def generate_candidate(self):
-        return
-
-    def anneal(self):
+    def solve(self):
+        """
+        Execute the solution
+        """
         while self.T > self.stopping_T and self.iter < self.stopping_iter:
 
             # Find two candidates whose positions will be swapped
+            # [TODO]: is N-2 correct? does it allow for last change?
             l = random.randint(1, self.N-2)
             r = random.randint(1, self.N-2)
             if l > r:
@@ -165,23 +150,10 @@ class SimAnneal():
             self.T *= self.alpha
             self.iter += 1.
 
-        # Finally build the solution graph (NOTE: No graph was used so far!)
-        self.curr_solution = self._build_graph()
+        # Finally build the solution graph
+        self.curr_solution = self.graph.build_graph_solution(self.curr_order)
         print(algos.evaluate_solution(self.curr_solution))
         return self.curr_solution
-
-    def _show_debug_info(self, cost):
-        env = environment.Environment(20, 2)
-        s1 = self._build_graph(self.curr_order)
-        c1 = algos.evaluate_solution(s1)
-        print(self.curr_order)
-        env.render(s1)
-        print(self.curr_order)
-        s2 = self._build_graph(self.curr_order)
-        c2 = algos.evaluate_solution(s2)
-        env.render(s2)
-        print(l, r+1)
-        print(c1, c2, c2-c1)
 
     def batch_anneal(self, times=10):
         """
@@ -190,5 +162,5 @@ class SimAnneal():
         for i in range(times):
             self.T = self.T_start
             self.iteration = 1
-            self.anneal()
+            self.solve()
         return self.anneal()

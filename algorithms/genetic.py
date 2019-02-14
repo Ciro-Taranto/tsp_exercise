@@ -1,31 +1,50 @@
-#######################################
-# Implementation of genetic algorithm #
-#######################################
-from graph import Graph
 import numpy as np
 import random
 import operator
-import algos
 import matplotlib.pyplot as plt
-from simulated_anneling import SimAnneal
+
+from objects.graph import Graph
+from algorithms import algos
+from algorithms.simulated_anneling import SimAnneal
 
 
 class Genetic():
-    def __init__(self, population_size=100, random_size=20, elite_size=None,
-                 luck_ratio=0.5, mutation_rate=0.005, generations=10):
+    def __init__(self, locations, edges, population_size=100,
+                 random_size=20, elite_size=None,
+                 luck_ratio=0.5, mutation_rate=0.005, generations=10,
+                 hybrid=False):
+        """
+        Solver for TSP with genetic algorithm.
+        Start from a population and breed the fittest individuals.
+        Breeding and mutation strategies are fixed.
+        Args:
+            locations(dict):{name:(x,y)}
+            edges(dict):{('from','to'):weight}
+            population_size(int): n of individuals in the population
+            random_size(int): n of indiduals that can reproduce
+            elite_size(int): fittest individuals that get cloned.
+                If None, 20% of random_size
+            luck_ratio[0,1]: 0.0 pure fitness, 1.0 pure random
+            mutation_rate[0,1]: p of mutation on single location
+            generations(int): how many generations
+            hybrid(bool): If True will start from a population obtained
+                muting the simulated annealing solution
+        """
+        self._instantiate_problem(locations, edges)  # not elegant
         self.population_size = population_size
         self.random_size = random_size
         self.elite_size = elite_size or random_size*0.25
         self.elite_size = int(self.elite_size)
         self.generations = generations
         self.luck_ratio = luck_ratio
+        self.hybrid = hybrid
         if self.luck_ratio < 0.0 or self.luck_ratio > 1.0:
             self.luck_ratio = 0.5
             print("Resetting luck_ratio to ", self.luck_ratio)
         self.mutation_rate = mutation_rate
         return None
 
-    def instantiate_problem(self, locations, weights):
+    def _instantiate_problem(self, locations, weights):
         self.locations = locations
         self.weights = weights
         self.graph = Graph(locations=self.locations, weights=self.weights)
@@ -33,34 +52,34 @@ class Genetic():
         self.number_of_locations = len(self.location_list)
         return True
 
-    def create_random_route(self):
+    def _create_random_route(self):
         return random.sample(self.location_list, self.number_of_locations)
 
-    def initial_population(self):
+    def _initial_population(self):
         population = []
         for i in range(self.population_size):
             # This does not guarantee that all the members of the population
             #  are different [meaningless for large enough sample]
-            population.append(self.create_random_route())
+            population.append(self._create_random_route())
         return population
 
-    def route_lenght(self, route):
+    def _route_lenght(self, route):
         total_len = sum([self.graph.get_edge_weight(route[i], route[i+1])
                          for i in range(-1, self.number_of_locations-1)])
         return total_len
 
-    def route_fitness(self, route):
-        route_val = self.route_lenght(route)
+    def _route_fitness(self, route):
+        route_val = self._route_lenght(route)
         fitness = 1./route_val
         return fitness
 
-    def rank_routes(self, population):
-        fitness_results = {i: self.route_fitness(
+    def _rank_routes(self, population):
+        fitness_results = {i: self._route_fitness(
             route) for i, route in enumerate(population)}
         return sorted(fitness_results.items(), key=operator.itemgetter(1),
                       reverse=True)
 
-    def cumsum(self, l):
+    def _cumsum(self, l):
         """
         l is a list of type
         [(i1,val),(i2,val),...]
@@ -70,7 +89,7 @@ class Genetic():
             cs.append(l[i][1]+cs[i-1])
         return cs
 
-    def mating_pool_selection(self, ranked_routes, population):
+    def _mating_pool_selection(self, ranked_routes, population):
         """
         Returns the mating pool elements and their fitness:
         ranked_routes(dict):(index:fitness)
@@ -81,7 +100,7 @@ class Genetic():
         luck_ratio = self.luck_ratio
         selection_results = []
         summed_fitness = sum([r[1] for r in ranked_routes])
-        cumulative_sum = self.cumsum(ranked_routes)  # From 0. to 1.
+        cumulative_sum = self._cumsum(ranked_routes)  # From 0. to 1.
         # Worse elements have a higher value.
         # To add some spice, some of them will get lucky.
         lucky_guys = (1.-luck_ratio)*np.array(cumulative_sum)/summed_fitness
@@ -102,7 +121,7 @@ class Genetic():
         mating_pool = [[population[i[0]], i[1]] for i in selection_results]
         return mating_pool
 
-    def breed(self, parent1, parent2, mu=0.5):
+    def _breed(self, parent1, parent2, mu=0.5):
         """
         Returns the offspring of two parents.
         parent1,parent2 are lists [parent,fitness]
@@ -123,7 +142,7 @@ class Genetic():
             print('child of abnormal lenght:', len(child))
         return child
 
-    def breed_population(self, mating_pool):
+    def _breed_population(self, mating_pool):
         """
         mating_pool(list): [individual, fitness]
         """
@@ -135,12 +154,12 @@ class Genetic():
 
         for i in range(self.elite_size, self.population_size):
             [i1, i2] = np.random.choice(len(mating_pool), 2, replace=False)
-            child = self.breed(mating_pool[i1], mating_pool[i2])
+            child = self._breed(mating_pool[i1], mating_pool[i2])
             children_population.append(child)
 
         return children_population
 
-    def mutate(self, individual, super_mutation=None):
+    def _mutate(self, individual, super_mutation=None):
         """
         The mutation rate does not refer to the individual
         it refers to each location
@@ -159,33 +178,40 @@ class Genetic():
             individual[l1], individual[l2] = individual[l2], individual[l1]
         return individual
 
-    def mutate_population(self, population):
-        return [self.mutate(individual) for individual in population]
+    def _mutate_population(self, population):
+        return [self._mutate(individual) for individual in population]
 
-    def next_generation(self, current_generation, i, pr):
-        ranked_routes = self.rank_routes(current_generation)
+    def _next_generation(self, current_generation, i, pr):
+        ranked_routes = self._rank_routes(current_generation)
         self.progress.append(1./ranked_routes[0][1])
-        mating_pool = self.mating_pool_selection(
+        mating_pool = self._mating_pool_selection(
             ranked_routes, current_generation)
-        children_generation = self.breed_population(mating_pool)
-        next_generation = self.mutate_population(children_generation)
+        children_generation = self._breed_population(mating_pool)
+        next_generation = self._mutate_population(children_generation)
         if pr:
             print('Champion of generation {}: {}'.format(
                 i, 1/ranked_routes[0][1]))
         return next_generation
 
-    def genetic_algorithm(self, plot=False, pr=False, hybrid=False):
+    def solve(self, plot=False, pr=False):
+        """
+        Solve the problem instance. 
+        plot: if True at the end will provide a plot of the 
+            best fitness along generations 
+        pr: if True will print some output 
+        hybrid: if True
+        """
         self.progress = []
-        if hybrid:
+        if self.hybrid:
             pop = self.hybrid_annealing()
         else:
-            pop = self.initial_population()
-        print([1./i[1] for i in self.rank_routes(pop)[:5]])
+            pop = self._initial_population()
+        print([1./i[1] for i in self._rank_routes(pop)[:5]])
 
         for i in range(self.generations):
-            pop = self.next_generation(pop, i, pr)
+            pop = self._next_generation(pop, i, pr)
 
-        rr = self.rank_routes(pop)
+        rr = self._rank_routes(pop)
         best_route_index = rr[0][0]
         best_route = pop[best_route_index]
         sol = self.graph.build_graph_solution(best_route)
@@ -198,13 +224,13 @@ class Genetic():
     def hybrid_annealing(self):
         sim = SimAnneal(self.locations, self.weights,
                         alpha=0.9995, stopping_iter=1e5)
-        drosophila = sim.anneal().adding_order
+        drosophila = sim.solve().adding_order
         initial_population = [drosophila]
 
         # Set a relatively high number,
         # otherwise all the population will be the same!
         mutant_rate = 0.05
         for i in range(1, self.population_size):
-            initial_population.append(self.mutate(
+            initial_population.append(self._mutate(
                 drosophila, super_mutation=mutant_rate))
         return initial_population

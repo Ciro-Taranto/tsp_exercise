@@ -1,6 +1,5 @@
-from graph import Graph
 import numpy as np
-from collections import defaultdict
+from objects.graph import Graph
 
 
 def find(parent, i):
@@ -126,15 +125,3 @@ def mst_kruskal(locations, weights):
             mst.add_edge(v, u, weight)
             union(parent, rank, x, y)
     return mst
-
-
-def heuristic(edges_matrix):
-    """
-    Heuristic function for the TSP,
-    using the minimum-spanning-tree.
-    Cost(MSP) <= Cost(TSP)
-    Args:
-        edges_matrix(np.array): weights of the edges
-    Returns:
-        cost of the minimum spanning tree
-    """
