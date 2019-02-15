@@ -42,7 +42,7 @@ def approximate_traveling_salesman(locations, weights, start=None):
 
 class SimAnneal(Solver):
     def __init__(self, locations, edges, T=None, alpha=0.995,
-                 stopping_T=1e-6, stopping_iter=1e5, start=None,
+                 stopping_T=1e-6, stopping_iter=100000, start=None,
                  start_solution=None):
         """
         Solver for simulated annealing. 
@@ -117,8 +117,9 @@ class SimAnneal(Solver):
 
             # Find two candidates whose positions will be swapped
             # [TODO]: is N-2 correct? does it allow for last change?
-            l = random.randint(1, self.N-2)
-            r = random.randint(1, self.N-2)
+            l, r = np.random.choice(range(1, self.N-1), 2, replace=False)
+            # l = random.randint(1, self.N-2)
+            # r = random.randint(1, self.N-2)
             if l > r:
                 l, r = r, l
             first_node = self.curr_order[l]
@@ -131,14 +132,14 @@ class SimAnneal(Solver):
             tie_add1 = self.edges[(first_node, self.curr_order[r+1])]
             tie_add2 = self.edges[(second_node, self.curr_order[l-1])]
 
-            cost = tie_add1+tie_add2-tie_break1-tie_break2
+            cost = (tie_add1 + tie_add2) - (tie_break1 + tie_break2)
 
             if self._accept(cost):
                 # self._show_debug_info(cost)
 
                 # If the candidate is accepted update order and current cost
                 # print(cost)
-                self.curr_order[l: r + 1] = reversed(self.curr_order[l: r+1])
+                self.curr_order[l: r + 1] = self.curr_order[l:r+1][::-1]
                 self.curr_solution_val += cost
                 if self.curr_solution_val < min(self.fitness_list):
                     self.best_list.append(self.curr_solution_val)
