@@ -72,11 +72,9 @@ class TravelingSalesman(Solver):
         So we need to extract its id
         """
         # A bit of care with tuples and lists
-        if isinstance(state, str):
-            s2 = [state]
-        else:
-            s2 = list(state)
-        return tuple(s2+[action.get_id()])
+        if not isinstance(state, tuple):
+            s2 = (state, )
+        return s2 + (action.get_id(), )
 
     def path_cost(self, cost_so_far, state, action, next_state):
         """

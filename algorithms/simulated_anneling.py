@@ -72,11 +72,15 @@ class SimAnneal(Solver):
         self.iter = 1
 
         # Initialize the best solution to the one of the greedy algo
+        # [TODO] Also the greedy algo has to be updated if there is no
+        # full connectivity! This turns out to be a constraint satisfaction
+        # problem!
         if start_solution is not None:
             self.curr_solution = start_solution
         else:
             self.curr_solution = approximate_traveling_salesman(
                 locations, edges, start=start)
+
         # The starting temperature is extremely importat:
         # It has to be fixed according to some length scale,
         # which in turns depends on the number of points
@@ -117,7 +121,14 @@ class SimAnneal(Solver):
 
             # Find two candidates whose positions will be swapped
             # [TODO]: is N-2 correct? does it allow for last change?
-            l, r = np.random.choice(range(1, self.N-1), 2, replace=False)
+            candidate = random.randint(range(1, self.N-1))
+            # if this is not a terminal candidate, we can still
+            # select if left or right
+
+            # After the selection find the neighbors of the next node.
+            # Among this chose. Check if the choice is consistent:
+            # if that node can be substituted by the one here
+
             # l = random.randint(1, self.N-2)
             # r = random.randint(1, self.N-2)
             if l > r:

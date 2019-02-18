@@ -73,10 +73,13 @@ def sort_edges(weights, locations):
     sort edges in increasing value of cost
     and returns the pairs
     """
+    # Admittedly, the following lines are horrible even if
+    # they will work eventually.
+
     edges = {}
-    for i, key1 in enumerate(locations):
-        for key2 in list(locations)[: i]:
-            edges[(key1, key2)] = weights[(key1, key2)]
+    for key, val in weights.items():
+        if (key[1], key[0]) not in edges.keys():
+            edges[key] = val
 
     # Get the sorted list of the edges
     edges = sorted(edges, key=edges.get)
@@ -92,7 +95,37 @@ def evaluate_solution(solution):
     return np.sum([val for key, val in edges.items()])
 
 
-def mst_kruskal(locations, weights):
+def transversal(g, visited, v):
+    visited[v] = True
+    for neighbor in g.get_vertex(v).get_connections():
+        n = neighbor.get_id()
+        if not visited[n]:
+            transversal(g, visited, n)
+    return visited
+
+
+def check_if_strongly_connected(g, start=None):
+    """
+    g is the graph to check
+    """
+    visited = {key: False for key in g.get_vertices()}
+    if start is None:
+        start = list(g.get_vertices())[0]
+    try:
+        transversal(g, visited, start)
+    except RecursionError:
+        print("Still to implement a different check for many nodes")
+        raise NotImplementedError
+    if all(val for key, val in visited.items()):
+        return True
+    else:
+        return visited
+
+
+def mst_kruskal(locations, weights, connectivity=False, return_parent=False):
+    """
+    If return_parent is True it will be returned the dictionary of the ranks
+    """
     mst = Graph()
 
     edges = sort_edges(weights, locations)
@@ -103,7 +136,6 @@ def mst_kruskal(locations, weights):
         parent[vert] = vert
         rank[vert] = 0
 
-    # Number of edges to be taken is equal to V-1
     for edge in edges:
 
         # Step 2: Pick the smallest edge and increment
@@ -115,7 +147,7 @@ def mst_kruskal(locations, weights):
         # If including this edge does't cause cycle,
         # include it in result and increment the index
         # of result for next edge
-        if x != y:
+        if x != y or connectivity:
             if u not in mst.get_vertices():
                 mst.add_vertex(u, locations[u])
             if v not in mst.get_vertices():
@@ -124,4 +156,8 @@ def mst_kruskal(locations, weights):
             mst.add_edge(u, v, weight)
             mst.add_edge(v, u, weight)
             union(parent, rank, x, y)
-    return mst
+
+    if return_parent:
+        return parent
+    else:
+        return mst

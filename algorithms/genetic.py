@@ -2,6 +2,7 @@ import numpy as np
 import random
 import operator
 import matplotlib.pyplot as plt
+from objects.solver import Solver
 
 from objects.graph import Graph
 from algorithms import algos

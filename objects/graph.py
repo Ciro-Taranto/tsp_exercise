@@ -2,6 +2,7 @@
 Adapted from: 
 https://www.bogotobogo.com/python/python_graph_data_structures.php
 """
+from observer.human import render
 
 
 class Vertex():
@@ -79,7 +80,7 @@ class Graph:
         self.vert_dict[to].add_neighbor(self.vert_dict[frm], weight)
         return True
 
-    def get_vertices(self):
+    def get_vertices(self, get_id=False):
         return self.vert_dict.keys()
 
     def delete_vertex(self, vert_id):
@@ -104,7 +105,7 @@ class Graph:
         weight = v1.get_weight(v2)
         return weight
 
-    def get_edges(self):
+    def get_edges(self, get_all=False):
         """
         Returns the edges arranged in a dictionary
         Note: Each edge is counted just once.
@@ -114,7 +115,7 @@ class Graph:
             vert_id = vert.get_id()
             for neighbor in vert.get_connections():
                 neighbor_id = neighbor.get_id()
-                if vert_id < neighbor_id:
+                if vert_id < neighbor_id or get_all:
                     edges[(vert_id, neighbor_id)
                           ] = vert.get_weight(neighbor)
         return edges
@@ -141,7 +142,7 @@ class Graph:
         l = self.get_vertex(start).get_location()
         g.add_vertex(start, l)
         for i in range(1, len(order)):
-            # Add vertex
+            # vAdd vertex
             n = order[i]
             loc = self.get_vertex(n).get_location()
             g.add_vertex(n, loc)
@@ -150,7 +151,11 @@ class Graph:
             w = self.get_edge_weight(n, p)
             g.add_edge(n, p, w)
             g.add_edge(p, n, w)
-        w = self.get_edge_weight(order[0], order[-1])
-        g.add_edge(order[0], order[-1], w)
-        g.add_edge(order[-1], order[0], w)
+        # w = self.get_edge_weight(order[0], order[-1])
+        # g.add_edge(order[0], order[-1], w)
+        # g.add_edge(order[-1], order[0], w)
         return g
+
+    def render(self):
+        render(self)
+        return True
