@@ -98,7 +98,9 @@ def random_graph_layout(number_of_loads, number_of_deposits,
                 vert_connections = set(
                     (next(iter(vert_connections)).get_id(), vert_id))
             else:
-                vert_connections = set((vert_id,))
+                vert_connections = [v.get_id() for v in vert_connections]
+                vert_connections.append(vert_id)
+                vert_connections = set(vert_connections)
             candidates = vertices_ids - vert_connections
             g.add_edge(vert_id, np.random.choice(
                 list(candidates)), np.random.rand())
