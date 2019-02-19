@@ -215,6 +215,7 @@ def best_first_graph_search(problem, f):
         i += 1
         if i % 10000 == 0:
             print('Checked already {} nodes'.format(i))
+            print(node.state)
     print('Solution could not be found within the limits imposed')
     return False
 

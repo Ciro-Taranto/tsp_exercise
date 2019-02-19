@@ -1,8 +1,9 @@
 """
-Adapted from: 
+Adapted from:
 https://www.bogotobogo.com/python/python_graph_data_structures.php
 """
 from observer.human import render
+import operator
 
 
 class Vertex():
@@ -80,14 +81,24 @@ class Graph():
         self.vert_dict[to].add_neighbor(self.vert_dict[frm], weight)
         return True
 
-    def get_vertices(self, get_id=False):
+    def get_vertices(self):
         return self.vert_dict.keys()
+
+    def get_vertices_connections(self, sorted=False):
+
+        all_connections = {key: {n.get_id(): n.get_weight(val)
+                                 for n in val.get_connections()}
+                           for key, val in self.vert_dict.items()}
+        if sorted:
+            all_connections = {k: sorted(v.items(), key=operator.itemgetter(1))
+                               for k, v in all_connections.items()}
+        return all_connections
 
     def delete_vertex(self, vert_id):
         """
         To delete a vertex, first delete all the edges
-        in which the vertex is included. 
-        This implementation requires symmetric graphs. 
+        in which the vertex is included.
+        This implementation requires symmetric graphs.
         """
         vert = self.get_vertex(vert_id)
         if vert is None:
