@@ -44,7 +44,7 @@ class Vertex():
             return False
 
 
-class Graph:
+class Graph():
     def __init__(self, **kwargs):
         self.vert_dict = {}
         self.num_vertices = 0
@@ -151,9 +151,9 @@ class Graph:
             w = self.get_edge_weight(n, p)
             g.add_edge(n, p, w)
             g.add_edge(p, n, w)
-        # w = self.get_edge_weight(order[0], order[-1])
-        # g.add_edge(order[0], order[-1], w)
-        # g.add_edge(order[-1], order[0], w)
+        w = self.get_edge_weight(order[0], order[-1])
+        g.add_edge(order[0], order[-1], w)
+        g.add_edge(order[-1], order[0], w)
         return g
 
     def render(self):

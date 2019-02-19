@@ -8,6 +8,7 @@ from objects.solver import Solver
 
 from problems.abstract_problems import Problem, Node
 from utils import memoize, PriorityQueue
+import numpy as np
 
 
 class TravelingSalesman(Solver):
@@ -31,14 +32,15 @@ class TravelingSalesman(Solver):
         """
         self.graph = Graph(locations=locations, weights=weights)
         self.locations = locations
+        self.total_locations = len(locations)
         self.weights = weights
         self.edges = algos.sort_edges(weights, locations)
         # Note: we represent states as tuples,
         # as these are hashable
         if start is None:
-            initial = (next(iter(self.graph)).get_id())
+            initial = (next(iter(self.graph)).get_id(),)
         else:
-            initial = (start)
+            initial = (start,)
         Problem.__init__(self, initial, None)
         self.start_neighbors = self._sorted_neighbors_from_start()
         self.limit_actions = limit_actions
@@ -54,8 +56,6 @@ class TravelingSalesman(Solver):
             # Space for improvement here
             # Remove already visited locations
             neighbors = [x for x in neighbors if x.get_id() not in list(A)]
-        elif isinstance(A, str):
-            neighbors = self.graph.get_vertex(A).get_connections(sort=True)
         else:
             raise Exception("Type of {} not recognized".format(A))
 
@@ -71,10 +71,7 @@ class TravelingSalesman(Solver):
         Take care that the action is an instance of Vertex
         So we need to extract its id
         """
-        # A bit of care with tuples and lists
-        if not isinstance(state, tuple):
-            s2 = (state, )
-        return s2 + (action.get_id(), )
+        return state + (action.get_id(), )
 
     def path_cost(self, cost_so_far, state, action, next_state):
         """
@@ -107,6 +104,9 @@ class TravelingSalesman(Solver):
         Execute the solution
         """
         solution_node = astar_search(self)
+        if solution_node is False:
+            print('The algorithm could not find a solution')
+            return False
         solution_graph = self.graph.build_graph_solution(solution_node.state)
         print(algos.evaluate_solution(solution_graph))
         return solution_graph
@@ -116,15 +116,22 @@ class TravelingSalesman(Solver):
         Since the distance from start will be called several times
         it makes sense to store it
         """
-        start_vertex = self.graph.get_vertex(self.initial)
+        start_vertex = self.graph.get_vertex(self.initial[0])
         neighbors = start_vertex.get_connections(sort=True)
         return [[n.get_id(), n.get_weight(start_vertex)] for n in neighbors]
 
     def _distance_from_subgraph(self, state):
+        if len(state) == self.total_locations:
+            neighbors = [n[0] for n in self.start_neighbors]
+            try:
+                ind = neighbors.index(state[-1])
+                return self.start_neighbors[ind][1]
+            except ValueError:
+                return np.Inf
         for n in self.start_neighbors:
             if n[0] not in state:
                 return n[1]
-        return 0.0
+        return np.Inf
 
     def _mst_kruskal(self, locations, weights, edges, state):
         """
@@ -175,9 +182,9 @@ def best_first_graph_search(problem, f):
     Search the nodes with the lowest f scores first.
     You specify the function f(node) that you want to minimize; for example,
     if f is a heuristic estimate to the goal, then we have greedy best
-    first search; if f is node.depth then we have breadth-first search.
-    There is a subtlety: the line "f = memoize(f, 'f')" means that the f
-    values will be cached on the nodes as they are computed. So after doing
+    first search; if lf.get_edge_weight(order[0], order[-1])f is node.depth then we have breadth-first search.
+    There is a subtle        g.add_edge(order[0], order[-1], w)ty: the line "f = memoize(f, 'f')" means that the f
+    values will be ca        g.add_edched on the nodes as they are computed. So after doing
     a best first search you can examine the f values of the path returned.
     """
     f = memoize(f, 'f')
@@ -189,7 +196,10 @@ def best_first_graph_search(problem, f):
     while frontier:
         node = frontier.pop()
         if problem.goal_test(node.state):
-            return node
+            if f(node) < np.Inf:
+                return node
+            else:
+                return False
         explored.add(node.state)
         for child in node.expand(problem):
             # This is dangerous, but I am assuming a given state

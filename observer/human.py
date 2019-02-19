@@ -1,4 +1,4 @@
-from objects.graph import Graph
+#from objects.graph import Graph
 import pylab as plt
 from matplotlib import collections as mc
 import numpy as np
