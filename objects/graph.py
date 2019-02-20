@@ -170,6 +170,14 @@ class Graph():
         g.add_edge(order[-1], order[0], w)
         return g
 
+    def build_graph_solution_from_edges(self, solution_edges):
+        all_edges = self.get_edges(get_all=True)
+        solution_edges = {edge: all_edges[edge] for edge in solution_edges}
+        locations = {v: self.get_vertex(v).get_location()
+                     for v in self.get_vertices()}
+        g = Graph(locations=locations, weights=solution_edges)
+        return g
+
     def render(self):
         render(self)
         return True

@@ -12,12 +12,17 @@ from algorithms.simulated_anneling import SimAnneal
 class Genetic():
     def __init__(self, locations, edges, population_size=100,
                  random_size=20, elite_size=None,
-                 luck_ratio=0.5, mutation_rate=0.005, generations=10,
+                 luck_ratio=0.2, power=1, coeff=10,
+                 mutation_rate=0.005, generations=10,
                  hybrid=False):
         """
         Solver for TSP with genetic algorithm.
         Start from a population and breed the fittest individuals.
         Breeding and mutation strategies are fixed.
+        The algo will work in the space of edges rather than vertices.
+        A state in the initial population
+        is going to be represented as a sequence of N consecutive edges.
+        By mutating this property will be lost.
         Args:
             locations(dict):{name:(x,y)}
             edges(dict):{('from','to'):weight}
@@ -30,6 +35,11 @@ class Genetic():
             generations(int): how many generations
             hybrid(bool): If True will start from a population obtained
                 muting the simulated annealing solution
+            power(int): not_visited_cost=(v-1)**power
+                with power>1 will penalize more
+                having "hubs" of locations visited too often
+            coeff(int): the fitness will be evaluated as
+                1/(route_length + coeff*not_visited_cost)
         """
         self._instantiate_problem(locations, edges)  # not elegant
         self.population_size = population_size
@@ -43,31 +53,67 @@ class Genetic():
             self.luck_ratio = 0.5
             print("Resetting luck_ratio to ", self.luck_ratio)
         self.mutation_rate = mutation_rate
+        self.power = power
+        self.coeff = coeff
         return None
 
     def _instantiate_problem(self, locations, weights):
         self.locations = locations
-        self.weights = weights
-        self.graph = Graph(locations=self.locations, weights=self.weights)
+        self.edges = weights
+        self.graph = Graph(locations=self.locations, weights=self.edges)
         self.location_list = self.graph.adding_order
         self.number_of_locations = len(self.location_list)
         return True
 
+    def _select_candidate(self, candidate_vert, individual):
+        # Try to pick one edge that guarantees continuity
+        while candidate_vert:
+            v_id = np.random.choice(candidate_vert)
+            candidate = (last_visited_vertex_id, v_id)
+            if candidate not in individual:
+                return candidate
+            del candidate_vert[candidate_vert.index(v_id)]
+        # If the above condition cannot be met
+        # Pick one edge at random
+        candidates = set(self.edges.keys())-set(individual)
+        return random.choice(list(candidates))
+
     def _create_random_route(self):
-        return random.sample(self.location_list, self.number_of_locations)
+        """
+        A random route is a random selection of edges
+        """
+        return random.sample(self.edges.keys(), self.number_of_locations)
 
     def _initial_population(self):
-        population = []
-        for i in range(self.population_size):
-            # This does not guarantee that all the members of the population
-            #  are different [meaningless for large enough sample]
-            population.append(self._create_random_route())
-        return population
+        return [self._create_random_route()
+                for i in range(self.population_size)]
 
     def _route_lenght(self, route):
-        total_len = sum([self.graph.get_edge_weight(route[i], route[i+1])
-                         for i in range(-1, self.number_of_locations-1)])
-        return total_len
+        return sum([self.edges[i] for i in route])
+
+    def _visited_locations(self, route):
+        # Initialized to -1 s.t. the desired value is 0
+        visits = {key: [-1, -1] for key in self.locations.keys()}
+        duplicated = {edge: sum([1 for e in route if e == edge])
+                      for edge in route}
+        duplicated_cost = sum([val-1 for key, val in duplicated.items()])
+        doubling_cost = 0
+        for edge in route:
+            visits[edge[0]][0] += 1
+            visits[edge[1]][1] += 1
+            if edge[::-1] in route:
+                doubling_cost += 1
+        return visits, doubling_cost + duplicated_cost
+
+    def _lmc(self, route):
+        """
+        lmc stands for location mismatch cost
+        """
+        visits, doubling_cost = self._visited_locations(route)
+        s = [np.abs(val[0])**self.power +
+             np.abs(val[1])**self.power
+             for key, val in visits.items()]
+        return sum(s) + doubling_cost
 
     def _route_fitness(self, route):
         route_val = self._route_lenght(route)
@@ -75,8 +121,16 @@ class Genetic():
         return fitness
 
     def _rank_routes(self, population):
-        fitness_results = {i: self._route_fitness(
+        len_results = {i: self._route_lenght(
             route) for i, route in enumerate(population)}
+        mismatch_results = {i: self._lmc(
+            route) for i, route in enumerate(population)}
+        norm1 = max([val for key, val in len_results.items()])
+        norm2 = max([val for key, val in mismatch_results.items()])
+        norm2 = norm2 if norm2 > 0 else 1.
+        fitness_results = {
+            i: 1./(len_results[i]/norm1 +
+                   self.coeff*mismatch_results[i]/norm2) for i in len_results.keys()}
         return sorted(fitness_results.items(), key=operator.itemgetter(1),
                       reverse=True)
 
@@ -106,7 +160,7 @@ class Genetic():
         # To add some spice, some of them will get lucky.
         lucky_guys = (1.-luck_ratio)*np.array(cumulative_sum)/summed_fitness
         random_luck = np.random.random(len(lucky_guys))
-        lucky_guys = lucky_guys + random_luck
+        lucky_guys = lucky_guys + luck_ratio * random_luck
         lucky_guys[:elite_size] = 2.0
 
         # This is not efficient. Sorting twice
@@ -134,13 +188,9 @@ class Genetic():
                                   random.gauss(1., mu)), 1))
         start_gene = random.randint(0, self.number_of_locations-1-gene_length)
 
-        # create the gene
+        # The ordering is now irrelevant
         gene = parent1[0][start_gene:start_gene+gene_length+1]
-        missing = [i for i in parent2[0] if i not in gene]
-        child = missing[:start_gene]+gene+missing[start_gene:]
-        if len(child) != self.number_of_locations:
-            print('Error in breeding funcion.')
-            print('child of abnormal lenght:', len(child))
+        child = parent2[0][:start_gene]+gene+parent2[0][start_gene:]
         return child
 
     def _breed_population(self, mating_pool):
@@ -150,11 +200,11 @@ class Genetic():
         children_population = []
 
         for i in range(self.elite_size):
-            True
             children_population.append(mating_pool[i][0])
 
         for i in range(self.elite_size, self.population_size):
-            [i1, i2] = np.random.choice(len(mating_pool), 2, replace=False)
+            [i1, i2] = random.sample(
+                range(len(mating_pool)), 2)
             child = self._breed(mating_pool[i1], mating_pool[i2])
             children_population.append(child)
 
@@ -174,9 +224,9 @@ class Genetic():
         number_of_mutations = np.random.binomial(
             self.number_of_locations, mutation_rate)
         for i in range(number_of_mutations):
-            [l1, l2] = np.random.choice(
-                range(self.number_of_locations), 2, replace=False)
-            individual[l1], individual[l2] = individual[l2], individual[l1]
+            individual[np.random.randint(
+                self.number_of_locations)] = random.choice(
+                    list(self.edges.keys()))
         return individual
 
     def _mutate_population(self, population):
@@ -196,10 +246,10 @@ class Genetic():
 
     def solve(self, plot=False, pr=False):
         """
-        Solve the problem instance. 
-        plot: if True at the end will provide a plot of the 
-            best fitness along generations 
-        pr: if True will print some output 
+        Solve the problem instance.
+        plot: if True at the end will provide a plot of the
+            best fitness along generations
+        pr: if True will print some output
         hybrid: if True
         """
         self.progress = []
@@ -210,22 +260,31 @@ class Genetic():
         print([1./i[1] for i in self._rank_routes(pop)[:5]])
 
         for i in range(self.generations):
+            if i % 10 == 0:
+                self._plot_and_print(pop)
             pop = self._next_generation(pop, i, pr)
-
         rr = self._rank_routes(pop)
         best_route_index = rr[0][0]
         best_route = pop[best_route_index]
-        sol = self.graph.build_graph_solution(best_route)
+        sol = self.graph.build_graph_solution_from_edges(best_route)
         if plot:
             plt.plot(self.progress, '-o')
-        if not pr:
-            print(1./rr[0][1])
         return sol
 
+    def _plot_and_print(self, pop):
+        rr = self._rank_routes(pop)
+        best_route_index = rr[0][0]
+        best_route = pop[best_route_index]
+        sol = self.graph.build_graph_solution_from_edges(best_route)
+        print(algos.evaluate_solution(sol))
+        sol.render()
+        return True
+
     def hybrid_annealing(self):
-        sim = SimAnneal(self.locations, self.weights,
-                        alpha=0.9995, stopping_iter=1e5)
-        drosophila = sim.solve().adding_order
+        sim = SimAnneal(self.locations, self.edges,
+                        alpha=0.9995, stopping_iter=1e5,
+                        get_lucky=True)
+        drosophila = sim.solve().get_edges(get_all=True)
         initial_population = [drosophila]
 
         # Set a relatively high number,
