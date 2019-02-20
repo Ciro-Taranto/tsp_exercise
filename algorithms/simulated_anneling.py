@@ -1,4 +1,5 @@
 import random
+import time
 import numpy as np
 import matplotlib.pyplot as plt
 from objects.graph import Graph
@@ -47,20 +48,20 @@ class SimAnneal(Solver):
                  start_solution=None, get_lucky=False,
                  luck_limit=int(1e6)):
         """
-        Solver for simulated annealing. 
+        Solver for simulated annealing.
         Start from an approximate solution and propose moves.
         Approximate solution: chose vertex and pick the next
-        Args: 
+        Args:
             locations(dict):{name:(x,y)}
             edges(dict):{('from','to'):weight}
             T(float): Starting temp, otherwise <w(approximated_sol)>.
-            stopping_iter(int): maximum iteration 
+            stopping_iter(int): maximum iteration
             start(str): vert to start from
             start_solution(list):['v1','v2',...] order of visit of vertices
-            get_lucky(bool): If true, the initialization will first try to 
-                start from a greedy approximation. If this is too expensive, 
+            get_lucky(bool): If true, the initialization will first try to
+                start from a greedy approximation. If this is too expensive,
                 fall back on the MRV approach to find a start solution
-            luck_limit: how many nodes are worth trying before falling back on 
+            luck_limit: how many nodes are worth trying before falling back on
                 MVR approach
         """
         self.locations = locations
@@ -93,6 +94,8 @@ class SimAnneal(Solver):
         # which in turns depends on the number of points
         if isinstance(self.curr_solution, Graph):
             self.curr_order = self.curr_solution.adding_order
+            # At the end of the list append the first element again
+            self.curr_order = self.curr_order + [self.curr_order[0]]
             self.curr_solution_val = algos.evaluate_solution(
                 self.graph.build_graph_solution(self.curr_order))
             edges = self.curr_solution.get_edges()
@@ -133,57 +136,111 @@ class SimAnneal(Solver):
             else:
                 return False
 
+    def _check_swappable(self, candidate_id, candidate_order,
+                         second_candidate_order,
+                         break_direction):
+        # First: if we are breaking a bond in direction plus we must have
+        # candidate_order > second_candidate_order
+        c1 = ((candidate_order > second_candidate_order
+               and break_direction == 1) or
+              (candidate_order < second_candidate_order
+               and break_direction == -1))
+        if c1:
+            second_next_vert = self.graph.get_vertex(
+                self.curr_order[second_candidate_order-break_direction])
+            substitutions = second_next_vert.get_connections(
+                retrieve_id=True)
+            return candidate_id in substitutions
+        return False
+
+    def _execute_swap(self, l, r):
+        # This function modifies the state, it is not idempotent
+        if l > r:
+            l, r = r, l
+        self.curr_order[l: r + 1] = self.curr_order[l: r + 1][::-1]
+
+    def _try_to_swap(self, candidate_id, candidate_order,
+                     second_candidate_id,
+                     second_candidate_order, break_direction):
+        # Find the ids of the bonds to break
+        next_candidate_id = self.curr_order[candidate_order+break_direction]
+        second_next_candidate_id = self.curr_order[second_candidate_order -
+                                                   break_direction]
+
+        # Find the cost of the bonds to break
+        tie_break1 = self.edges[(candidate_id, next_candidate_id)]
+        tie_break2 = self.edges[(
+            second_candidate_id, second_next_candidate_id)]
+        tie_add1 = self.edges[(candidate_id, second_next_candidate_id)]
+        tie_add2 = self.edges[(second_candidate_id, next_candidate_id)]
+        cost = (tie_add1 + tie_add2) - (tie_break1 + tie_break2)
+
+        # If the cost is acceptable execute swap
+        if self._accept(cost):
+            self._execute_swap(
+                candidate_order, second_candidate_order)
+            self.curr_solution_val += cost
+            if self.curr_solution_val < min(self.fitness_list):
+                self.best_list.append(self.curr_solution_val)
+                self.fitness_list.append(self.curr_solution_val)
+        return True
+
     def solve(self):
         """
         Execute the solution
         """
+        start_time = time.time()
         while self.T > self.stopping_T and self.iter < self.stopping_iter:
 
-            # Find two candidates whose positions will be swapped
-            # [TODO]: is N-2 correct? does it allow for last change?
-            candidate = random.randint(range(1, self.N-1))
-            # if this is not a terminal candidate, we can still
-            # select if left or right
+            # Select one candidate and the bond to break
+            # relative to this candidate
+            candidate_order = random.randint(range(1, self.N-1))
+            candidate_id = self.curr_order[candidate_order]
+            break_direction = np.random.choice([+1, -1])
 
-            # After the selection find the neighbors of the next node.
-            # Among this chose. Check if the choice is consistent:
-            # if that node can be substituted by the one here
+            # The candidate can be substituted by any vertex that has a
+            # bond with the vertex next to it
+            next_vert = self.graph.get_vertex(self.curr_order[
+                candidate_order + break_direction])
+            possible_substitutes = next_vert.get_connctions(
+                retrieve_id=True)
+            del possible_substitutes[possible_substitutes.index(cadidate_id)]
 
-            # l = random.randint(1, self.N-2)
-            # r = random.randint(1, self.N-2)
-            if l > r:
-                l, r = r, l
-            first_node = self.curr_order[l]
-            second_node = self.curr_order[r]
-
-            # Find cost of breaking ties and creating new ones
-            tie_break1 = self.edges[(first_node, self.curr_order[l-1])]
-            tie_break2 = self.edges[(second_node, self.curr_order[r+1])]
-
-            tie_add1 = self.edges[(first_node, self.curr_order[r+1])]
-            tie_add2 = self.edges[(second_node, self.curr_order[l-1])]
-
-            cost = (tie_add1 + tie_add2) - (tie_break1 + tie_break2)
-
-            if self._accept(cost):
-                # self._show_debug_info(cost)
-
-                # If the candidate is accepted update order and current cost
-                # print(cost)
-                self.curr_order[l: r + 1] = self.curr_order[l:r+1][::-1]
-                self.curr_solution_val += cost
-                if self.curr_solution_val < min(self.fitness_list):
-                    self.best_list.append(self.curr_solution_val)
-
-            # Update the fitness list
-            self.fitness_list.append(self.curr_solution_val)
+            while possible_substitutes:
+                # For the operation to be successful the candidate must fit
+                # into the place where we want to put it
+                second_candidate_id = np.random.choice(possible_substitutes)
+                second_candidate_order = self.curr_order.index(
+                    second_candidate_id)
+                # [CT]: Another possible implementation is with try/catch.
+                # [CT]: Maybe cleaner?
+                # If the swap is possible, we consider it
+                if self._check_swappable(candidate_id, candidate_order,
+                                         second_candidate_order,
+                                         break_direction
+                                         ):
+                    self._try_to_swap(candidate_id, next_vert,
+                                      second_candidate_id,
+                                      second_candidate_order,
+                                      break_direction)
+                    break
+                # Otherwise we delete the candidate and go on with the next
+                del possible_substitutes[possible_substitutes.index(
+                    second_candidate_id)]
 
             # Decrease temperature, increase iterations
             self.T *= self.alpha
             self.iter += 1.
+            print_number = 10000
+            if int(self.iter) % 10000 == 0:
+                print('Performed {} iterations'.format(self.iter))
+                elapsed = time.time()-start_time
+                print('{} iterations per second'.format(print_number/elapsed))
+                start_time = time.time()
 
         # Finally build the solution graph
-        self.curr_solution = self.graph.build_graph_solution(self.curr_order)
+        self.curr_solution = self.graph.build_graph_solution(
+            self.curr_order[:-1])
         print(algos.evaluate_solution(self.curr_solution))
         return self.curr_solution
 

@@ -19,9 +19,12 @@ class Vertex():
     def add_neighbor(self, neighbor, weight=0):
         self.adjacent[neighbor] = weight
 
-    def get_connections(self, sort=False):
+    def get_connections(self, sort=False, retrieve_id=False):
         if not sort:
-            return self.adjacent.keys()
+            if retrieve_id:
+                return [k.get_id() for k in self.adjacent.keys()]
+            else:
+                return self.adjacent.keys()
         else:
             return sorted(self.adjacent, key=self.adjacent.get)
 
@@ -134,9 +137,9 @@ class Graph():
     def import_graph(self, locations, weights):
         """
         Import a graph given the location of the vertexes
-        and the edges weight. 
-        Args: 
-            -location(dict): {key: loc}
+        and the edges weight.
+        Args:
+            -location(dict): {key: l}
             -weights(dict): {(from,to):weight}
         """
         assert type(locations) == dict
