@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from objects.graph import Graph
 from objects.solver import Solver
 from algorithms import algos
+from algorithms.constraint_satisfaction import ConstraintSatisfaction
 
 
 def approximate_traveling_salesman(locations, weights, start=None):
@@ -43,7 +44,8 @@ def approximate_traveling_salesman(locations, weights, start=None):
 class SimAnneal(Solver):
     def __init__(self, locations, edges, T=None, alpha=0.995,
                  stopping_T=1e-6, stopping_iter=100000, start=None,
-                 start_solution=None):
+                 start_solution=None, get_lucky=False,
+                 luck_limit=int(1e6)):
         """
         Solver for simulated annealing. 
         Start from an approximate solution and propose moves.
@@ -55,6 +57,11 @@ class SimAnneal(Solver):
             stopping_iter(int): maximum iteration 
             start(str): vert to start from
             start_solution(list):['v1','v2',...] order of visit of vertices
+            get_lucky(bool): If true, the initialization will first try to 
+                start from a greedy approximation. If this is too expensive, 
+                fall back on the MRV approach to find a start solution
+            luck_limit: how many nodes are worth trying before falling back on 
+                MVR approach
         """
         self.locations = locations
         self.N = len(locations)
@@ -70,7 +77,8 @@ class SimAnneal(Solver):
         self.stopping_T = stopping_T
         self.stopping_iter = stopping_iter
         self.iter = 1
-
+        self.get_lucky = get_lucky
+        self.luck_limit = luck_limit
         # Initialize the best solution to the one of the greedy algo
         # [TODO] Also the greedy algo has to be updated if there is no
         # full connectivity! This turns out to be a constraint satisfaction
@@ -78,23 +86,35 @@ class SimAnneal(Solver):
         if start_solution is not None:
             self.curr_solution = start_solution
         else:
-            self.curr_solution = approximate_traveling_salesman(
-                locations, edges, start=start)
+            self.curr_solution = self._initialize_solution()
 
         # The starting temperature is extremely importat:
         # It has to be fixed according to some length scale,
         # which in turns depends on the number of points
-        self.curr_order = self.curr_solution.adding_order
-        self.curr_solution_val = algos.evaluate_solution(
-            self.graph.build_graph_solution(self.curr_order))
-        edges = self.curr_solution.get_edges()
-        self.T = T if T is not None else sum(
-            [v for k, v in edges.items()])/len(edges.items())/2
-        print(self.curr_solution_val)
-        print("Starting Temperature = {}".format(self.T))
-        self.T_start = self.T
-        self.fitness_list = [self.curr_solution_val]
-        self.best_list = [self.curr_solution_val]
+        if isinstance(self.curr_solution, Graph):
+            self.curr_order = self.curr_solution.adding_order
+            self.curr_solution_val = algos.evaluate_solution(
+                self.graph.build_graph_solution(self.curr_order))
+            edges = self.curr_solution.get_edges()
+            self.T = T if T is not None else sum(
+                [v for k, v in edges.items()])/len(edges.items())/2
+            print(self.curr_solution_val)
+            print("Starting Temperature = {}".format(self.T))
+            self.T_start = self.T
+            self.fitness_list = [self.curr_solution_val]
+            self.best_list = [self.curr_solution_val]
+        else:
+            print('The problem instance has no solution. Sad but true')
+
+    def _initialize_solution(self):
+        cp = ConstraintSatisfaction(self.locations, self.edges,
+                                    lucky=self.get_lucky,
+                                    luck_limit=self.luck_limit)
+        sol = cp.solve()
+        if sol is False:
+            cp = ConstraintSatisfaction(self.locations, self.edges)
+            sol = cp.solve()
+        return sol
 
     def _p_accept(self, cost):
         """

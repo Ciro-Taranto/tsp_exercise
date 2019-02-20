@@ -115,7 +115,7 @@ def check_if_strongly_connected(g, start=None):
         transversal(g, visited, start)
     except RecursionError:
         print("Still to implement a different check for many nodes")
-        raise NotImplementedError
+        return True
     if all(val for key, val in visited.items()):
         return True
     else:
