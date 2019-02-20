@@ -97,7 +97,7 @@ class SimAnneal(Solver):
             # At the end of the list append the first element again
             self.curr_order = self.curr_order + [self.curr_order[0]]
             self.curr_solution_val = algos.evaluate_solution(
-                self.graph.build_graph_solution(self.curr_order))
+                self.graph.build_graph_solution(self.curr_order[:-1]))
             edges = self.curr_solution.get_edges()
             self.T = T if T is not None else sum(
                 [v for k, v in edges.items()])/len(edges.items())/2
@@ -145,7 +145,7 @@ class SimAnneal(Solver):
                and break_direction == 1) or
               (candidate_order < second_candidate_order
                and break_direction == -1))
-        if c1:
+        if c1 and second_candidate_order != 0:
             second_next_vert = self.graph.get_vertex(
                 self.curr_order[second_candidate_order-break_direction])
             substitutions = second_next_vert.get_connections(
@@ -166,7 +166,6 @@ class SimAnneal(Solver):
         next_candidate_id = self.curr_order[candidate_order+break_direction]
         second_next_candidate_id = self.curr_order[second_candidate_order -
                                                    break_direction]
-
         # Find the cost of the bonds to break
         tie_break1 = self.edges[(candidate_id, next_candidate_id)]
         tie_break2 = self.edges[(
@@ -182,7 +181,7 @@ class SimAnneal(Solver):
             self.curr_solution_val += cost
             if self.curr_solution_val < min(self.fitness_list):
                 self.best_list.append(self.curr_solution_val)
-                self.fitness_list.append(self.curr_solution_val)
+            self.fitness_list.append(self.curr_solution_val)
         return True
 
     def solve(self):
@@ -194,7 +193,7 @@ class SimAnneal(Solver):
 
             # Select one candidate and the bond to break
             # relative to this candidate
-            candidate_order = random.randint(range(1, self.N-1))
+            candidate_order = random.randint(1, self.N-1)
             candidate_id = self.curr_order[candidate_order]
             break_direction = np.random.choice([+1, -1])
 
@@ -202,9 +201,9 @@ class SimAnneal(Solver):
             # bond with the vertex next to it
             next_vert = self.graph.get_vertex(self.curr_order[
                 candidate_order + break_direction])
-            possible_substitutes = next_vert.get_connctions(
+            possible_substitutes = next_vert.get_connections(
                 retrieve_id=True)
-            del possible_substitutes[possible_substitutes.index(cadidate_id)]
+            del possible_substitutes[possible_substitutes.index(candidate_id)]
 
             while possible_substitutes:
                 # For the operation to be successful the candidate must fit
@@ -219,7 +218,7 @@ class SimAnneal(Solver):
                                          second_candidate_order,
                                          break_direction
                                          ):
-                    self._try_to_swap(candidate_id, next_vert,
+                    self._try_to_swap(candidate_id, candidate_order,
                                       second_candidate_id,
                                       second_candidate_order,
                                       break_direction)
@@ -252,4 +251,4 @@ class SimAnneal(Solver):
             self.T = self.T_start
             self.iteration = 1
             self.solve()
-        return self.anneal()
+        return self.solve()
