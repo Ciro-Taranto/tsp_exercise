@@ -190,9 +190,15 @@ class Genetic():
                                   random.gauss(1., mu)), 1))
         start_gene = random.randint(0, self.number_of_locations-1-gene_length)
 
-        # The ordering is now irrelevant
+        # Create the gene
         gene = parent1[0][start_gene:start_gene+gene_length+1]
-        child = parent2[0][:start_gene]+gene+parent2[0][start_gene:]
+
+        # Check if any of the edges in the gene is present elsewhere:
+        # Avoid edges duplication
+        # duplicated_edges = [e for e in parent2[0][:star_gene]+parent2[0][] if e in gene]
+
+        child = parent2[0][:start_gene]+gene + \
+            parent2[0][start_gene+gene_length+1:]
         return child
 
     def _breed_population(self, mating_pool):
