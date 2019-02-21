@@ -12,7 +12,7 @@ from algorithms.simulated_anneling import SimAnneal
 class Genetic():
     def __init__(self, locations, edges, population_size=100,
                  random_size=20, elite_size=None,
-                 luck_ratio=0.2, power=1, coeff=10,
+                 luck_ratio=0.2, power=1, coeff=1,
                  mutation_rate=0.005, generations=10,
                  hybrid=False):
         """
@@ -55,11 +55,14 @@ class Genetic():
         self.mutation_rate = mutation_rate
         self.power = power
         self.coeff = coeff
+        self.mutations = 0
         return None
 
     def _instantiate_problem(self, locations, weights):
         self.locations = locations
         self.edges = weights
+        # not the nicest way... but still
+        self.edge_sorter = {val: i for i, val in enumerate(self.edges.keys())}
         self.graph = Graph(locations=self.locations, weights=self.edges)
         self.location_list = self.graph.adding_order
         self.number_of_locations = len(self.location_list)
@@ -82,7 +85,10 @@ class Genetic():
         """
         A random route is a random selection of edges
         """
-        return random.sample(self.edges.keys(), self.number_of_locations)
+        unsorted_route = random.sample(
+            self.edges.keys(), self.number_of_locations)
+        sorter = {edge: self.edge_sorter[edge] for edge in unsorted_route}
+        return sorted(sorter, key=sorter.get)
 
     def _initial_population(self):
         return [self._create_random_route()
@@ -115,11 +121,6 @@ class Genetic():
              for key, val in visits.items()]
         return sum(s) + doubling_cost
 
-    def _route_fitness(self, route):
-        route_val = self._route_lenght(route)
-        fitness = 1./route_val
-        return fitness
-
     def _rank_routes(self, population):
         len_results = {i: self._route_lenght(
             route) for i, route in enumerate(population)}
@@ -130,7 +131,8 @@ class Genetic():
         norm2 = norm2 if norm2 > 0 else 1.
         fitness_results = {
             i: 1./(len_results[i]/norm1 +
-                   self.coeff*mismatch_results[i]/norm2) for i in len_results.keys()}
+                   self.coeff*mismatch_results[i]/norm2
+                   ) for i in len_results.keys()}
         return sorted(fitness_results.items(), key=operator.itemgetter(1),
                       reverse=True)
 
@@ -210,7 +212,7 @@ class Genetic():
 
         return children_population
 
-    def _mutate(self, individual, super_mutation=None):
+    def _inconsistent_mutate(self, individual, super_mutation=None):
         """
         The mutation rate does not refer to the individual
         it refers to each location
@@ -224,10 +226,52 @@ class Genetic():
         number_of_mutations = np.random.binomial(
             self.number_of_locations, mutation_rate)
         for i in range(number_of_mutations):
-            individual[np.random.randint(
-                self.number_of_locations)] = random.choice(
-                    list(self.edges.keys()))
-        return individual
+            individual[random.randint(0, len(individual)-1)] = random.choice(
+                list(self.edges.keys()))
+        individual = {edge: self.edge_sorter[edge] for edge in individual}
+        return sorted(individual, key=individual.get)
+
+    def _mutate(self, individual, super_mutation=None):
+        """
+        Only consistent mutations will be allowed.
+        This will force the algo towards some beam
+        stimulated annealing
+        """
+        individual = individual.copy()
+        if super_mutation is not None:
+            mutation_rate = super_mutation
+        else:
+            mutation_rate = self.mutation_rate
+        number_of_mutations = np.random.binomial(
+            self.number_of_locations, mutation_rate)
+
+        for i in range(number_of_mutations):
+            bond_to_break = individual[random.randint(0, len(individual)-1)]
+            left = self.graph.get_vertex(bond_to_break[0])
+            right = self.graph.get_vertex(bond_to_break[1])
+            connections_left = left.get_connections(retrieve_id=True)
+            del connections_left[connections_left.index(bond_to_break[1])]
+            connections_right = right.get_connections(retrieve_id=True)
+            del connections_right[connections_right.index(bond_to_break[0])]
+            candidates = []
+            for r2 in connections_left:
+                try:
+                    l2 = [e[0] for e in individual if e[1] == r2][0]
+                except:
+                    l2 = None
+                if l2 in connections_right:
+                    candidates.append((l2, r2))
+            if len(candidates) > 0:
+                bond_to_break2 = random.choice(candidates)
+                # mutate!
+                self.mutations += 1
+                individual[individual.index(bond_to_break)] = (
+                    bond_to_break2[0], bond_to_break[1])
+                individual[individual.index(bond_to_break2)] = (
+                    bond_to_break[0], bond_to_break2[1])
+
+        individual = {edge: self.edge_sorter[edge] for edge in individual}
+        return sorted(individual, key=individual.get)
 
     def _mutate_population(self, population):
         return [self._mutate(individual) for individual in population]
@@ -252,17 +296,17 @@ class Genetic():
         pr: if True will print some output
         hybrid: if True
         """
+        self.mutations = 0
         self.progress = []
         if self.hybrid:
             pop = self.hybrid_annealing()
         else:
             pop = self._initial_population()
-        print([1./i[1] for i in self._rank_routes(pop)[:5]])
-
         for i in range(self.generations):
-            if i % 10 == 0:
+            if i % 500 == 0:
                 self._plot_and_print(pop)
             pop = self._next_generation(pop, i, pr)
+
         rr = self._rank_routes(pop)
         best_route_index = rr[0][0]
         best_route = pop[best_route_index]
@@ -276,7 +320,8 @@ class Genetic():
         best_route_index = rr[0][0]
         best_route = pop[best_route_index]
         sol = self.graph.build_graph_solution_from_edges(best_route)
-        print(algos.evaluate_solution(sol))
+        print(algos.evaluate_solution(sol), rr[0][1])
+        print('Violations:', self._lmc(best_route))
         sol.render()
         return True
 
@@ -284,13 +329,21 @@ class Genetic():
         sim = SimAnneal(self.locations, self.edges,
                         alpha=0.9995, stopping_iter=1e5,
                         get_lucky=True)
-        drosophila = sim.solve().get_edges(get_all=True)
+        drosophila = sim.solve()
+        d = []
+        for i in range(-1, len(drosophila.adding_order)-1):
+            d.append(
+                (drosophila.adding_order[i], drosophila.adding_order[i+1]))
+        drosophila.render()
+        drosophila = d
+        print("Violations on drosophila:", self._lmc(drosophila))
         initial_population = [drosophila]
-
         # Set a relatively high number,
         # otherwise all the population will be the same!
-        mutant_rate = 0.05
+        mutant_rate = 0.02
         for i in range(1, self.population_size):
             initial_population.append(self._mutate(
                 drosophila, super_mutation=mutant_rate))
+        print("Violations on population", min(
+            [self._lmc(i) for i in initial_population]))
         return initial_population
