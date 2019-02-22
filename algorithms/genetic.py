@@ -195,11 +195,84 @@ class Genetic():
 
         # Check if any of the edges in the gene is present elsewhere:
         # Avoid edges duplication
-        # duplicated_edges = [e for e in parent2[0][:star_gene]+parent2[0][] if e in gene]
+        p = parent2[0][:start_gene] + parent2[0][start_gene+gene_length+1:]
+        duplicated_edges = [e for e in p
+                            if e in gene]
+        candidate_substitutes = [
+            e for e in parent2[start_gene:start_gene+gene_length+1]
+            if e not in gene]
+        if len(candidate_substitutes) >= len(duplicated_edges):
+            substitutes = random.sample(
+                candidate_substitutes, len(duplicated_edges))
+        else:
+            # This will not guarantee e complete deduplication
+            # But should still be fine enough
+            substitutes = candidate_substitutes + \
+                random.sample(self.edges.keys(), len(
+                    duplicated_edges)-len(candidate_substitutes))
 
         child = parent2[0][:start_gene]+gene + \
             parent2[0][start_gene+gene_length+1:]
+
+        # Remove edges from rich nodes and give them to poor ones
+        child = self._robin_hood(child, self._visited_locations(child)[0])
         return child
+
+    def _add_pos_neg(self, visits):
+        """
+        Create the positive/negative dictionaries
+        """
+        negatives = [{}, {}]
+        positives = [{}, {}]
+        for key, val in visits.items():
+            for i in range(len(val)):
+                if val[i] > 0:
+                    positives[i][key] = val[i]
+                elif val[i] < 0:
+                    negatives[i][key] = val[i]
+        return negatives[0], positives[0], negatives[1], positives[1]
+
+    def _reconnect(self, individual, neg, pos, visits, ind):
+        # Again this function is bad because changes its internal state
+        for key in neg.keys():
+            if len(pos) == 0:
+                break
+            # find one with a positive value
+            candidate = random.choice(list(pos.keys()))
+            rcandidates = [e[ind-1] for e in individual
+                           if e[ind] == candidate]
+            if ind == 0:
+                both_candidates = [(candidate, e) for e in rcandidates
+                                   if (candidate, e) in self.edges.keys()]
+            if ind == 1:
+                both_candidates = [(e, candidate) for e in rcandidates
+                                   if (e, candidate) in self.edges.keys()]
+            if len(both_candidates) > 0:
+                winner = random.choice(both_candidates)
+            if ind == 0:
+                del individual[individual.index((candidate, winner[1]))]
+                individual.append(winner)
+            else:
+                del individual[individual.index((winner[0], candidate))]
+                individual.append(winner)
+            neg[key] += 1
+            pos[candidate] -= 1
+            if pos[candidate] == 0:
+                del pos[candidate]
+
+            visits[key][ind] += 1
+            visits[candidate][ind] -= 1
+
+        return True
+
+    def _robin_hood(self, individual, visits):
+        # Computationally this is very inefficient
+        visits = {key: val for key, val in visits.items() if val != [0, 0]}
+        lneg, lpos, rneg, rpos = self._add_pos_neg(visits)
+        self._reconnect(individual, lneg, lpos, visits, 0)
+        self._reconnect(individual, rneg, rpos, visits, 1)
+        visits = {key: val for key, val in visits.items() if val != [0, 0]}
+        return individual
 
     def _breed_population(self, mating_pool):
         """
