@@ -14,7 +14,8 @@ class Genetic():
     def __init__(self, locations, edges, population_size=100,
                  random_size=20, elite_size=None,
                  luck_ratio=0.2, power=1, coeff=1,
-                 mutation_rate=0.005, generations=10,
+                 mutation_rate=0.005, super_mutant_rate=0.05,
+                 generations=10,
                  hybrid=False):
         """
         Solver for TSP with genetic algorithm.
@@ -56,19 +57,25 @@ class Genetic():
         self.elite_size = elite_size or random_size*0.20
         self.elite_size = int(self.elite_size)
         self.generations = generations
+        self.print_every = self.generations//5
         self.luck_ratio = luck_ratio
         self.hybrid = hybrid
         if self.luck_ratio < 0.0 or self.luck_ratio > 1.0:
             self.luck_ratio = 0.5
             print("Resetting luck_ratio to ", self.luck_ratio)
         self.mutation_rate = mutation_rate
+        self.super_mutant_rate = super_mutant_rate
         self.power = power
         self.coeff = coeff
         self.mutations = 0
         self.progress = []
         self.best_route = []
 
-    def _route_lenght(self, route):
+    def _mutant_schedule(self, generation):
+        sigma = self.generations**2/10.
+        return np.exp(-generation**2/sigma)*self.mutation_rate
+
+    def _route_length(self, route):
         return sum([self.edges[i] for i in route])
 
     def _visited_locations(self, route):
@@ -94,7 +101,7 @@ class Genetic():
 
     def _rank_routes(self, population):
         # Working under the assumption that all routes are valid
-        fitness_results = {i: 1./(self._route_lenght(
+        fitness_results = {i: 1./(self._route_length(
             route)*self._count_connected_sets(route)**2)
                            for i, route in enumerate(population)}
         return sorted(fitness_results.items(), key=operator.itemgetter(1),
@@ -102,25 +109,16 @@ class Genetic():
 
     def _mating_pool_selection(self, ranked_routes, population):
         """
-        Returns the mating pool elements and their fitness:
+        Simplified version of mating pool selection
         ranked_routes(dict):(index:fitness)
         population(list): [candidate1,candidate2,...]
         """
         selection_results = ranked_routes[:self.elite_size].copy()
-        summed_fitness = sum([r[1] for r in ranked_routes])
-        cumulative_sum = _cumsum(ranked_routes)  # From 0. to 1.
-        # Worse elements have a higher value.
-        # To add some spice, some of them will get lucky.
-        lucky_guys = (1.-self.luck_ratio)*np.array(cumulative_sum[self.elite_size:])/summed_fitness
-        lucky_guys = lucky_guys + self.luck_ratio * np.random.random(len(lucky_guys))
-
-        # This is not efficient. Sorting twice
-        lucky_order = np.argsort(lucky_guys)[:self.random_size]
-        # and the append the lucky ones
-        for i in range(self.random_size):
-            # Written this way to mix list and np.array
-            selection_results.append(ranked_routes[lucky_order[i]])
-
+        other_candidates = ranked_routes[self.elite_size:]
+        p = [r[1] for r in other_candidates]
+        p = p/sum(p) # normalize to get a probability
+        lucky_individuals = np.random.choice(range(len(other_candidates)), self.random_size, p=p, replace=False)
+        selection_results += [other_candidates[i] for i in lucky_individuals]
         mating_pool = [[population[i[0]], i[1]] for i in selection_results]
         return mating_pool
 
@@ -132,19 +130,19 @@ class Genetic():
         # The parent with highest fitness contributes the most
         r = parent1[1]/(parent1[1]+parent2[1])
         # Gene length is between 1 and N-1
-        gene_lenght = min(self.number_of_locations-1,
+        gene_length = min(self.number_of_locations-1,
                           max(int(r*self.number_of_locations *
                                   random.gauss(1., mu)), 1))
         # Create the gene
-        start_gene = random.randint(0, self.number_of_locations - 1 - gene_lenght)
-        gene = parent1[0][start_gene:start_gene+gene_lenght+1]
-        removed_gene = parent2[0][start_gene:start_gene+gene_lenght+1]
-        remaining_gene = parent2[0][:start_gene]+parent2[start_gene+gene_lenght+1:]
+        start_gene = random.randint(0, self.number_of_locations - 1 - gene_length)
+        gene = parent1[0][start_gene:start_gene+gene_length+1]
+        removed_gene = parent2[0][start_gene:start_gene+gene_length+1]
+        remaining_gene = parent2[0][:start_gene]+parent2[start_gene+gene_length+1:]
 
         # Find the duplicated bonds:
         whitelist = [e for e in remaining_gene if (e not in gene and tuple(reversed(e)) not in gene)]
         i = 0
-        while len(whitelist) < (self.number_of_locations - gene_lenght - 1):
+        while len(whitelist) < (self.number_of_locations - gene_length - 1):
             i += 1
             if i > 10000:
                 raise Exception("Infinite loop")
@@ -294,17 +292,12 @@ class Genetic():
         assert len(new_individual) == len(individual)
         return new_individual
 
-    def _mutate(self, individual, super_mutation=None):
+    def _mutate(self, individual, mutation_rate):
         """
         Only consistent mutations will be allowed.
         This will force the algo towards some beam
         simulated annealing
         """
-        individual = individual
-        if super_mutation is not None:
-            mutation_rate = super_mutation
-        else:
-            mutation_rate = self.mutation_rate
         number_of_mutations = np.random.binomial(
             self.number_of_locations, mutation_rate)
 
@@ -345,10 +338,10 @@ class Genetic():
     def _sort_population(self, population):
         return [self._sort_individual(individual) for individual in population]
 
-    def _mutate_population(self, population):
-        return [self._mutate(individual) for individual in population]
+    def _mutate_population(self, population,mutant_rate):
+        return [self._mutate(individual, mutant_rate) for individual in population]
 
-    def _next_generation(self, current_generation):
+    def _next_generation(self, current_generation,mutant_rate):
         """
         :param current_generation: population being evolved
         :return: next generation after breeding and mutating
@@ -359,7 +352,7 @@ class Genetic():
         mating_pool = self._mating_pool_selection(
             ranked_routes, current_generation)
         children_generation = self._breed_population(mating_pool)
-        next_generation = self._mutate_population(children_generation)
+        next_generation = self._mutate_population(children_generation, mutant_rate)
         next_generation = self._sort_population(next_generation)
         return next_generation
 
@@ -375,11 +368,11 @@ class Genetic():
         pop = self._initialize_population()
         start = time.time()
         for i in range(1,self.generations+1):
-            if i % 500 == 0:
+            if i % self.print_every == 0:
                 self._plot_and_print(pop)
-                print("Time per generation={}".format((time.time()-start)/500))
+                print("Time per generation={}".format((time.time()-start)/self.print_every))
                 start = time.time()
-            pop = self._next_generation(pop)
+            pop = self._next_generation(pop, self._mutant_schedule(i))
 
         rr = self._rank_routes(pop)
         best_route_index = rr[0][0]
@@ -416,9 +409,8 @@ class Genetic():
             d.append((
                      pre_solution.adding_order[i],
                      pre_solution.adding_order[i+1]))
-        mutant_rate = 0.05
         return [self._mutate(
-                d, super_mutation=mutant_rate) for i in range(self.population_size)]
+                d, self.super_mutant_rate) for i in range(self.population_size)]
 
     def _count_connected_sets(self,individual):
         visited = {l: False for l in self.location_list}
@@ -453,16 +445,6 @@ def _add_pos_neg(visits):
             elif v < 0:
                 negatives[i][key] = v
     return negatives[0], positives[0], negatives[1], positives[1]
-
-def _cumsum(l):
-    """
-    l is a list of type
-    [(i1,val),(i2,val),...]
-    """
-    cs = [l[0][1]]
-    for i in range(1, len(l)):
-        cs.append(l[i][1]+cs[i-1])
-    return cs
 
 
 

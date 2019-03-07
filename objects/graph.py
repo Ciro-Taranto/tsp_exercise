@@ -1,8 +1,6 @@
-"""
-Adapted from:
-https://www.bogotobogo.com/python/python_graph_data_structures.php
-"""
 from observer.human import render
+from collections import OrderedDict
+import numpy as np
 import operator
 
 
@@ -48,15 +46,64 @@ class Vertex():
             return False
 
 
-class Graph():
+class Graph:
     def __init__(self, **kwargs):
-        self.vert_dict = {}
+        self.vert_dict = OrderedDict()
         self.num_vertices = 0
         self.adding_order = []
+        # Obsolete, the different constructor should be given as class method
         if "locations" in kwargs.keys() and "weights" in kwargs.keys():
             locations = kwargs['locations']
             weights = kwargs['weights']
             self.import_graph(locations, weights)
+        self.vert_ind = {vert_id: i for i, vert_id in enumerate(self.vert_dict.keys())}
+        self.ind_vert = {v: k for k, v in self.vert_ind.items()}
+
+    def import_graph(self, locations, weights):
+        """
+        Import a graph given the location of the vertexes
+        and the edges weight.
+        Args:
+            -location(dict): {key: l}
+            -weights(dict): {(from,to):weight}
+        """
+        assert isinstance(locations,dict) and isinstance(weights,dict)
+        for i, l in locations.items():
+            self.add_vertex(i, l)
+        for key, weight in weights.items():
+            self.add_edge(key[0], key[1], weight)
+        return True
+
+    @property
+    def adjacency_matrix(self):
+        if hasattr(self,'adj'):
+            return self.adj
+        else:
+            self.adj = self._compute_adjacency_matrix()
+            return self.adj
+
+    @property
+    def weight_matrix(self):
+        if hasattr(self,'weight'):
+            return self.weight
+        else:
+            self.weight = self._compute_adjacency_matrix(weight=True)
+            return self.weight
+
+    @classmethod
+    def from_locations_eges(cls, locations, weights):
+        """
+        Construct from locations and weights
+        """
+        if not (isinstance(locations,dict) and isinstance(weights,dict)):
+            raise ValueError('Locations and weights must be dictionaries')
+        graph = cls()
+        for i, l in locations.items():
+            graph.add_vertex(i, l)
+        for key, weight in weights.items():
+            graph.add_edge(key[0], key[1], weight)
+        graph.vert_ind = {vert_id: i for i, vert_id in enumerate(graph.vert_dict.keys())}
+        return graph
 
     def __iter__(self):
         return iter(self.vert_dict.values())
@@ -134,21 +181,28 @@ class Graph():
                           ] = vert.get_weight(neighbor)
         return edges
 
-    def import_graph(self, locations, weights):
+    def _compute_adjacency_matrix(self, weight=False):
         """
-        Import a graph given the location of the vertexes
-        and the edges weight.
-        Args:
-            -location(dict): {key: l}
-            -weights(dict): {(from,to):weight}
+        Gives the adjacency matrix associated to the graph.
+        For this scope the weights are not used.
+        The graph is supposed to be directed.
+
+        We want to use it as acting on a column vector.
+        v_i^{t+1} = \sum_j M_{ij} v_j^t
+        Meaning that if v_i^t are the location at step t, at step t+1
+        I can go to v_i^{t+1}.
+
+        To obtain this if (from,to) is in the list of edges it must be set M_{to,from}!=0
+        Normalization and probabilites are left aside for the moment
+        :return: np.array, adjacency matrix
         """
-        assert type(locations) == dict
-        assert type(weights) == dict
-        for i, l in locations.items():
-            self.add_vertex(i, l)
-        for key, weight in weights.items():
-            self.add_edge(key[0], key[1], weight)
-        return True
+        print('Computing adj...')
+        adjacency = np.zeros((len(self.vert_dict),len(self.vert_dict)))
+        for edge, w in self.get_edges(get_all=True).items():
+            adjacency[self.vert_ind[edge[1]], self.vert_ind[edge[0]]]= w if weight else 1
+        return adjacency
+
+
 
     def build_graph_solution(self, order):
         g = Graph()
@@ -156,7 +210,7 @@ class Graph():
         l = self.get_vertex(start).get_location()
         g.add_vertex(start, l)
         for i in range(1, len(order)):
-            # vAdd vertex
+            # Add vertex
             n = order[i]
             loc = self.get_vertex(n).get_location()
             g.add_vertex(n, loc)
