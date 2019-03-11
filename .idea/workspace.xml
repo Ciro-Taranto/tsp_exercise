@@ -2,9 +2,6 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="5dde6201-cded-4734-b5ff-c55342309d1b" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/tsp_exercise.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/tsp_exercise.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/algorithms/continuum.py" beforeDir="false" afterPath="$PROJECT_DIR$/algorithms/continuum.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
@@ -18,14 +15,13 @@
       <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/algorithms/continuum.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="544">
-              <caret line="453" column="60" selection-start-line="453" selection-start-column="60" selection-end-line="453" selection-end-column="60" />
+            <state relative-caret-position="290">
+              <caret line="448" column="33" selection-start-line="448" selection-start-column="33" selection-end-line="448" selection-end-column="33" />
               <folding>
                 <element signature="e#0#31#0" expanded="true" />
                 <element signature="e#1398#1933#0" />
                 <element signature="e#2942#3032#0" />
                 <element signature="e#1994#2219#0" />
-                <element signature="e#2990#3276#0" />
                 <element signature="e#3342#4507#0" />
                 <element signature="e#4571#5790#0" />
                 <element signature="e#6420#6998#0" />
@@ -393,14 +389,13 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/algorithms/continuum.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="544">
-          <caret line="453" column="60" selection-start-line="453" selection-start-column="60" selection-end-line="453" selection-end-column="60" />
+        <state relative-caret-position="290">
+          <caret line="448" column="33" selection-start-line="448" selection-start-column="33" selection-end-line="448" selection-end-column="33" />
           <folding>
             <element signature="e#0#31#0" expanded="true" />
             <element signature="e#1398#1933#0" />
             <element signature="e#2942#3032#0" />
             <element signature="e#1994#2219#0" />
-            <element signature="e#2990#3276#0" />
             <element signature="e#3342#4507#0" />
             <element signature="e#4571#5790#0" />
             <element signature="e#6420#6998#0" />

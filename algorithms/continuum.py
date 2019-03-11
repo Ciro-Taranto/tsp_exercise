@@ -446,7 +446,7 @@ class Continuum:
         self.snapshots = self.snapshots or []
         optimizer = torch_optimizer(self.model.parameters(), lr=lr, **kwargs)
         every = max(iterations // snapshots, 1)
-        for i in torch.arange(iterations, device=device):
+        for i in range(iterations):
             optimizer.zero_grad()
             loss = self.model.loss(col_violations_cost=col_violations_cost,
                                    row_violations_cost=row_violations_cost,
