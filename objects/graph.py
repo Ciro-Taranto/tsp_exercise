@@ -57,7 +57,10 @@ class Graph:
             weights = kwargs['weights']
             self.import_graph(locations, weights)
         self.vert_ind = {vert_id: i for i, vert_id in enumerate(self.vert_dict.keys())}
-        self.ind_vert = {v: k for k, v in self.vert_ind.items()}
+
+    @property
+    def ind_vert(self):
+        return {v: k for k, v in self.vert_ind.items()}
 
     def import_graph(self, locations, weights):
         """
@@ -80,7 +83,7 @@ class Graph:
             return self.adj
         else:
             self.adj = self._compute_adjacency_matrix()
-            return self.adj
+            return self.adj.copy()
 
     @property
     def weight_matrix(self):
@@ -88,7 +91,7 @@ class Graph:
             return self.weight
         else:
             self.weight = self._compute_adjacency_matrix(weight=True)
-            return self.weight
+            return self.weight.copy()
 
     @classmethod
     def from_locations_eges(cls, locations, weights):

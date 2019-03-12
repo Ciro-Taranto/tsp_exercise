@@ -9,7 +9,7 @@ from objects.solver import Solver
 from problems.abstract_problems import Problem, Node
 from utils import memoize, PriorityQueue
 import numpy as np
-
+from IPython.display import display, clear_output
 
 class TravelingSalesman(Solver):
     """
@@ -217,8 +217,10 @@ def best_first_graph_search(problem, f):
             #         frontier.append(child)
         i += 1
         if i % 10000 == 0:
-            print('Checked already {} nodes'.format(i))
-            print(node.state)
+            clear_output(wait=True)
+            display(print('Checked already {} nodes'.format(i)))
+            display(print(node.state))
+
     print('Solution could not be found within the limits imposed')
     return False
 

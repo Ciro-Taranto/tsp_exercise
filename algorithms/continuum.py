@@ -60,10 +60,19 @@ class PathRepresentationModel(nn.Module):
         self.propagation_matrix = graph.adjacency_matrix / (np.sum(graph.adjacency_matrix, axis=0)+epsilon)
         # For the pytorch instance
         self.sigma = sigma
+        self.worse_edge_factor = worse_edge_factor
         self.modified_weight_tensor = self._get_modified_weight_tensor(worse_edge_factor)
+        # One needs a normalization constant for the path cost, to avoid that it is the only component
+        self.path_normalization = torch.sum(self.modified_weight_tensor) / self.graph.num_vertices
         self.complete_tensor = None
 
         self.variable_tensor = nn.Parameter(self.initialize_variable_tensor())
+
+        path_tensor = self.forward()
+        self.violations_normalization = torch.sum(torch.abs(torch.sum(path_tensor, dim=1)
+                                   - torch.ones(path_tensor.shape[0],
+                                                device=self.device, dtype=self.dtype)))
+        self.violations_normalization = self.violations_normalization.detach()
         self.summary = None
 
         self.maxent = torch.tensor(np.log(self.graph.num_vertices), device=self.device, dtype=self.dtype)
@@ -85,6 +94,7 @@ class PathRepresentationModel(nn.Module):
 
     def reset_variable_tensor(self):
         self.variable_tensor = nn.Parameter(self.initialize_variable_tensor())
+        self.summary = None
         return True
 
     def get_working_tensor(self, variable_tensor):
@@ -97,8 +107,9 @@ class PathRepresentationModel(nn.Module):
 
     def _get_modified_weight_tensor(self, worse_edge_factor):
         worse_edge = np.max(self.graph.weight_matrix)
-        modified_weight_matrix = self.graph.weight_matrix
-        modified_weight_matrix[np.where(self.graph.weight_matrix == 0)] = worse_edge_factor * worse_edge
+        penalty = worse_edge * worse_edge_factor
+        modified_weight_matrix = self.graph.weight_matrix.copy()
+        modified_weight_matrix[np.where(self.graph.weight_matrix == 0)] = penalty
         return torch.tensor(modified_weight_matrix, device=self.device, dtype=self.dtype)
 
     def tensor_average_path_cost(self, path_tensor, epsilon=1e-6):
@@ -118,7 +129,7 @@ class PathRepresentationModel(nn.Module):
             to_column = path_tensor[:, i + 1]
             link_probabilities = torch.ger(from_column, to_column)
             link_probabilities = link_probabilities / (torch.sum(link_probabilities)+epsilon)
-            ew += torch.sum(link_probabilities * self.modified_weight_tensor)
+            ew += torch.sum(link_probabilities * self.modified_weight_tensor)/self.path_normalization
         return ew
 
     def tensor_extra_cost(self, path_tensor, epsilon=0.):
@@ -141,7 +152,7 @@ class PathRepresentationModel(nn.Module):
             to_column = softmax(path_tensor[:, i + 1])
             link_probabilities = torch.ger(from_column, to_column)
             link_probabilities = link_probabilities / (torch.sum(link_probabilities) + epsilon)
-            ew += torch.sum(link_probabilities * self.modified_weight_tensor)
+            ew += torch.sum(link_probabilities * self.modified_weight_tensor)/self.path_normalization
         return ew
 
     def tensor_entropy(self, path_tensor, epsilon=1e-6):
@@ -153,7 +164,7 @@ class PathRepresentationModel(nn.Module):
         """
         epsilon = epsilon * torch.ones(path_tensor.shape, device=self.device, dtype=self.dtype)
         total_entropy = -torch.sum(torch.log(path_tensor + epsilon) * path_tensor)
-        return total_entropy / path_tensor.shape[0]
+        return total_entropy / (path_tensor.shape[0] * self.maxent)
 
     def tensor_violations(self, path_tensor, dim=1):
         """
@@ -166,7 +177,8 @@ class PathRepresentationModel(nn.Module):
         if dim not in [0, 1]:
             raise ValueError('dim must be 0 or 1. {} given'.format(dim))
         return torch.sum(torch.abs(torch.sum(path_tensor, dim=dim)
-                                   - torch.ones(path_tensor.shape[0], device=self.device, dtype=self.dtype)))
+                                   - torch.ones(path_tensor.shape[0],
+                                                device=self.device, dtype=self.dtype)))/self.violations_normalization
 
     def loss(self, col_violations_cost=1., row_violations_cost=1.,
              length_cost=1., entropy_cost=1., append=True):
@@ -190,14 +202,14 @@ class PathRepresentationModel(nn.Module):
         entropy_evaluated_cost = self.tensor_entropy(path_tensor)
         lo = col_violations_cost * column_evaluated_violations
         lo += row_violations_cost * row_evaluated_violations
-        lo += length_cost * (entropy_evaluated_cost/self.maxent * path_evaluated_cost
-                             + (1.-entropy_evaluated_cost/self.maxent) * path_evaluated_extra_cost)
+        lo += length_cost * (entropy_evaluated_cost * path_evaluated_cost
+                             + (1.-entropy_evaluated_cost) * path_evaluated_extra_cost)
         lo += entropy_cost * entropy_evaluated_cost
         if append:
-            self.summary = torch.cat((self.summary, torch.tensor([
+            self.summary = torch.cat((self.summary, torch.tensor([[
                 row_evaluated_violations, column_evaluated_violations,
                 path_evaluated_cost, path_evaluated_extra_cost,
-                entropy_evaluated_cost], dtype=self.dtype, device=self.device)))
+                entropy_evaluated_cost, lo]], dtype=self.dtype, device=self.device)))
         return lo
 
     ################################################
@@ -280,10 +292,6 @@ class Continuum:
     ----------
     graph: Graph, the graph (custom class!) associated to the problem
     """
-
-    # TODO add docstrings
-    # TODO implement a routine that does the training internally
-    # TODO implement visualization
     def __init__(self, graph, **kwargs):
         if not isinstance(graph, Graph):
             raise ValueError('The class must be initialized with a Graph. {} given'.format(type(graph)))
@@ -337,8 +345,8 @@ class Continuum:
 
     def scheduled_solve(self, col_violations_cost=1., row_violations_cost=1.,
                         length_cost=1., entropy_cost=1., snapshots=10,
-                        device=torch.device('cuda' if torch.cuda.is_available() else torch.device('cpu')),
-                        dtype=torch.float32,
+                        device=None,
+                        dtype=None,
                         torch_optimizer=torch.optim.Adam, lr=0.005,
                         iterations=50000, worse_edge_factor=3., sigma=0.05,
                         schedule=static_weights,
@@ -351,8 +359,8 @@ class Continuum:
         :param length_cost:float, multiplicative parameter for the loss function
         :param entropy_cost:float,multiplicative parameter for the loss function
         :param snapshots:int, how many snapshots of the state to take
-        :param device: torch.device, specify if 'cuda' or 'cpu'. Default: 'cuda', if available.
-        :param dtype: torch.dtype, default torch.float32.
+        :param device: string, specify if 'cuda' or 'cpu'. Default: 'cuda', if available.
+        :param dtype: int, 64 or 32. Default torch.float32.
         :param torch_optimizer: optimizer from torch
         :param lr: float, learning rate
         :param iterations: int, number of iterations
@@ -364,6 +372,11 @@ class Continuum:
         :param kwargs: parameters to pass to the torch optimizer
         :return: the solution graph
         """
+        try:
+            device = torch.device(device)
+        except:
+            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        dtype = torch.float64 if dtype==64 else torch.float32
 
         if callable(schedule):
             scheduled_params = schedule(iterations)
@@ -378,17 +391,31 @@ class Continuum:
         if scheduled_params.shape != torch.Size([iterations, 3]):
             raise ValueError('Wrong schedule shape. Given {}. Expected {}'.format(self.scheduled_params.shape,
                                                                                   torch.Size([iterations, 3])))
-        if (self.model is None) or (self.model.device != device) or (self.model.dtype != dtype):
+        if ((self.model is None) or (self.model.device != device) or
+                (self.model.dtype != dtype) or (self.model.worse_edge_factor != worse_edge_factor)):
             print('Instantiate a new model')
             self.model = self.get_model(worse_edge_factor=worse_edge_factor, sigma=sigma,
                                         device=device, dtype=dtype)
 
         if from_fresh:
             self.model.reset_variable_tensor()
+            self.snapshots = None
+
+        print('Initial path cost:', self.model.tensor_average_path_cost(self.model()))
+        print('Initial path cost 2', self.model.tensor_extra_cost(self.model()))
+        print('Initial entropy cost', self.model.tensor_entropy(self.model()))
+        print('Initial violations cost', self.model.tensor_violations(self.model(), dim=1)
+              + self.model.tensor_violations(self.model(), dim=0))
 
         self.snapshots = self.snapshots or []
         optimizer = torch_optimizer(self.model.parameters(), lr=lr, **kwargs)
         every = max(iterations // snapshots, 1)
+
+        # Avoid syncs by moving constants to tensors in proper location
+        col_violations_cost = torch.tensor(col_violations_cost, device=device, dtype=dtype)
+        row_violations_cost = torch.tensor(row_violations_cost, device=device, dtype=dtype)
+        length_cost = torch.tensor(length_cost, device=device, dtype=dtype)
+        entropy_cost = torch.tensor(entropy_cost, device=device, dtype=dtype)
         for i in torch.arange(iterations, device=device):
             optimizer.zero_grad()
             loss = self.model.loss(col_violations_cost=col_violations_cost * scheduled_params[i, 0],
@@ -402,6 +429,12 @@ class Continuum:
             optimizer.step()
         self.complete_tensor = self.model()
         self.summary = self.model.summary
+
+        print('Final path cost:', self.model.tensor_average_path_cost(self.model()))
+        print('Final path cost 2', self.model.tensor_extra_cost(self.model()))
+        print('Final entropy cost', self.model.tensor_entropy(self.model()))
+        print('Final violations cost', self.model.tensor_violations(self.model(), dim=1)
+              + self.model.tensor_violations(self.model(), dim=0))
         # if self.model.summary.data.shape[0] > 0:
         #     self.summary = pd.DataFrame(np.array(self.model.summary.cpu().data),
         #                                 columns=['rows', 'cols', 'path_smooth', 'path_sharp', 'entropy'])
@@ -409,8 +442,8 @@ class Continuum:
 
     def solve(self, col_violations_cost=1., row_violations_cost=1.,
               length_cost=1., entropy_cost=1., snapshots=10,
-              device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),
-              dtype=torch.float32,
+              device=None,
+              dtype=None,
               torch_optimizer=torch.optim.Adam, lr=0.005,
               iterations=50000, worse_edge_factor=3., sigma=0.05,
               from_fresh=False, append=True,
@@ -422,8 +455,8 @@ class Continuum:
         :param length_cost:float, multiplicative parameter for the loss function
         :param entropy_cost:float,multiplicative parameter for the loss function
         :param snapshots:int, how many snapshots of the state to take
-        :param device: torch.device, specify if 'cuda' or 'cpu'. Default: 'cuda', if available.
-        :param dtype: torch.dtype, default torch.float32.
+        :param device: string, specify if 'cuda' or 'cpu'. Default: 'cuda', if available.
+        :param dtype:int, 64 or 32, default torch.float32.
         :param torch_optimizer: optimizer from torch
         :param lr: float, learning rate
         :param iterations: int, number of iterations
@@ -434,15 +467,33 @@ class Continuum:
         :param kwargs: parameters to pass to the torch optimizer
         :return: the solution graph
         """
+        return self.scheduled_solve(col_violations_cost=col_violations_cost, row_violations_cost=row_violations_cost,
+                                    length_cost=length_cost, entropy_cost=entropy_cost, snapshots=snapshots,
+                                    device=device,
+                                    dtype=dtype,
+                                    torch_optimizer=torch_optimizer, lr=lr,
+                                    iterations=iterations, worse_edge_factor=worse_edge_factor, sigma=sigma,
+                                    from_fresh=from_fresh, append=append,
+                                    **kwargs)
+        try:
+            device = torch.device(device)
+        except:
+            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        dtype = torch.float64 if dtype == 64 else torch.float32
 
-        device = torch.device(device) or torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         if (self.model is None) or (self.model.device != device) or (self.model.dtype != dtype):
             print('Instantiate a new model')
             self.model = self.get_model(worse_edge_factor=worse_edge_factor, sigma=sigma,
                                         device=device, dtype=dtype)
-
         if from_fresh:
             self.model.reset_variable_tensor()
+            self.snapshots = None
+
+        print('Initial path cost:', self.model.tensor_average_path_cost(self.model()))
+        print('Initial path cost 2',self.model.tensor_extra_cost(self.model()))
+        print('Initial entropy cost',self.model.tensor_entropy(self.model()))
+        print('Initial violations cost',self.model.tensor_violations(self.model(), dim=1)
+              + self.model.tensor_violations(self.model(), dim=0))
 
         self.snapshots = self.snapshots or []
         optimizer = torch_optimizer(self.model.parameters(), lr=lr, **kwargs)
@@ -460,34 +511,18 @@ class Continuum:
             optimizer.step()
         self.complete_tensor = self.model()
         self.summary = self.model.summary
+
+        print('Final path cost:', self.model.tensor_average_path_cost(self.model()))
+        print('Final path cost 2', self.model.tensor_extra_cost(self.model()))
+        print('Final entropy cost', self.model.tensor_entropy(self.model()))
+        print('Final violations cost', self.model.tensor_violations(self.model(), dim=1)
+              + self.model.tensor_violations(self.model(), dim=0))
         # if self.model.summary.data.shape[0] > 0:
         #     self.summary = pd.DataFrame(np.array(self.model.summary.cpu().data),
         #                                 columns=['rows', 'cols', 'path_smooth', 'path_sharp', 'entropy'])
         return self.complete_tensor
 
-    def _get_used_locations(self, complete_tensor):
-        # This function is not going to be pretty: I have no clue how to write it
-        # In principle here some choice would have to be made!
-        arr = np.array(complete_tensor.data)
-        orders = np.zeros(arr.shape, dtype=int)
-        for i in range(arr.shape[1]):
-            orders[:, i] = np.argsort(arr[:, i])[::-1]
-
-        used_locations = [self.graph.ind_vert[orders[0, 0]]]
-        for i in range(1, orders.shape[1]):
-            departure = used_locations[-1]
-            for j in range(orders.shape[0]):
-                arrival = self.graph.ind_vert[orders[j, i]]
-                c1 = (departure, arrival) in self.graph.get_edges(get_all=True).keys()
-                c2 = arrival not in used_locations
-                if c1 and c2:
-                    used_locations.append(arrival)
-                    break
-        if len(used_locations) != self.graph.num_vertices:
-            raise ValueError('Did not get the correct order')
-        return used_locations
-
-    def get_solution_graph(self, complete_tensor):
+    def get_solution_graph(self):
         """
         Build the solution graph from the complete tensor.
 
@@ -498,42 +533,47 @@ class Continuum:
         :param complete_tensor:
         :return: solution graph
         """
-        used_locations = self._get_used_locations(complete_tensor)
-        # order = [np.argmax(arr[:,i]) for i in range(arr.shape[1])]
-        # order = [self.graph.ind_vert[i] for i in order]
+        arr = np.array(self.complete_tensor.cpu().data)
+        order = [np.argmax(arr[:,i]) for i in range(arr.shape[1])]
+        order = [self.graph.ind_vert[i] for i in order]
         try:
-            return self.graph.build_graph_solution(used_locations)
+            return self.graph.build_graph_solution(order)
         except KeyError:
-            return used_locations
+            return order
 
     def show_evolution(self, cmap='Blues', persist=False, sleep=.5):
-        arr = np.array(self.complete_tensor.data)
+        arr = np.array(self.complete_tensor.cpu().data)
         order = np.array([np.argmax(arr[:, i]) for i in range(arr.shape[1])])
 
         # order = np.array([self.graph.vert_ind[v] for v in self._get_used_locations(self.complete_tensor)], dtype=int)
         for state in self.snapshots:
             if persist is False:
                 clear_output(wait=True)
-            sns.heatmap(state[order], cmap=cmap)
+            sns.heatmap(np.array(state.cpu().data)[order], cmap=cmap)
             display(plt.show())
             time.sleep(sleep)
         return
 
-    def plot_progress(self, key='loss', xlim=None, ylim=None):
+    def plot_progress(self, keys=['loss'], xlim=None, ylim=None):
         """
         Simple util to print the progress after self.solve() has been executed
         :param key: which components of the loss should be printed
         :param xlim: either None or a list of dimension two
         :param ylim: either None or a list of dimension two
         """
+        summary = np.array(self.summary.cpu().data)
+        columns = {'row':0, 'column':1, 'path':2, 'rigid_path':3, 'entropy':4, 'loss':5}
+
         if len(self.summary) == 0:
-            print('No data to plot.. yet')
+            print('No data to plot... yet')
             return
-        if key not in self.summary[0].keys():
-            y = [sum([val for k, val in i.items()]) for i in self.summary]
-        else:
-            y = [i[key] for i in self.summary]
-        plt.plot(y, '-o')
+        for key in keys:
+            try:
+                plt.plot(summary[:, columns[key]], '-o', label=key)
+            except KeyError:
+                print('Key {} not found.'.format(key))
+                print('Available keys: {}'.format(columns.keys()))
+        plt.legend()
         plt.xlim(xlim)
         plt.ylim(ylim)
         return True

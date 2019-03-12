@@ -69,7 +69,7 @@ if args.load_filename is None:
         dump_filename = args.dump_filename
         t = time.localtime()
         timestamp = time.strftime('%b-%d-%Y_%H%M', t)
-        infostring = '_solution_locations{}_edges{}_traffic{}_time{}.p'.format(
+        infostring = '_locations{}_edges{}_traffic{}_time{}.p'.format(
             graph.num_vertices, len(graph.get_edges(get_all=True)), args.traffic, timestamp)
         dump_filename = dump_filename.split('.')[0]
         dump_filename = 'data/' + dump_filename + infostring
@@ -122,5 +122,5 @@ plt.show()
 # Pickle solution
 t = time.localtime()
 timestamp = time.strftime('%m-%d-%Y_%H%M', t)
-pickle.dump(solution, open("./data/solution_locations{}_edges{}_traffic{}_time{}.p".format(
-    graph.num_vertices, len(graph.get_edges(get_all=True)), args.traffic, timestamp), "wb"))
+pickle.dump(solution, open("./data/solution_solver_{}_locations{}_edges{}_traffic{}_time{}.p".format(
+    solver_name, graph.num_vertices, len(graph.get_edges(get_all=True)), args.traffic, timestamp), "wb"))

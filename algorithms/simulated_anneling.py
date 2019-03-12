@@ -79,8 +79,6 @@ class SimAnneal(Solver):
         self.iter = 1
         self.get_lucky = get_lucky
         self.luck_limit = luck_limit
-        print(type(start_solution))
-        print(start_solution is None)
         if start_solution is not None:
             self.curr_solution = start_solution
         else:
@@ -119,7 +117,6 @@ class SimAnneal(Solver):
         if sol is False:
             cp = ConstraintSatisfaction(self.graph)
             sol = cp.solve()
-        print(type(sol))
         return sol
 
     def _p_accept(self, cost):

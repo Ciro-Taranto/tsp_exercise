@@ -2,16 +2,14 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="5dde6201-cded-4734-b5ff-c55342309d1b" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/config.yml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/tsp.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/render.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/algorithms/constraint_satisfaction.py" beforeDir="false" afterPath="$PROJECT_DIR$/algorithms/constraint_satisfaction.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/algorithms/continuum.py" beforeDir="false" afterPath="$PROJECT_DIR$/algorithms/continuum.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/algorithms/genetic.py" beforeDir="false" afterPath="$PROJECT_DIR$/algorithms/genetic.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/algorithms/search.py" beforeDir="false" afterPath="$PROJECT_DIR$/algorithms/search.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/algorithms/simulated_anneling.py" beforeDir="false" afterPath="$PROJECT_DIR$/algorithms/simulated_anneling.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/objects/graph.py" beforeDir="false" afterPath="$PROJECT_DIR$/objects/graph.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/observer/human.py" beforeDir="false" afterPath="$PROJECT_DIR$/observer/human.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tsp.py" beforeDir="false" afterPath="$PROJECT_DIR$/tsp.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
@@ -21,13 +19,49 @@
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file pinned="false" current-in-tab="false">
+      <file pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/algorithms/continuum.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="8844">
-              <caret line="411" column="79" selection-start-line="411" selection-start-column="79" selection-end-line="411" selection-end-column="79" />
+            <state relative-caret-position="107">
+              <caret line="485" column="42" selection-start-line="485" selection-start-column="42" selection-end-line="485" selection-end-column="42" />
               <folding>
                 <element signature="e#0#31#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/objects/graph.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="1298">
+              <caret line="62" column="28" selection-start-line="62" selection-start-column="28" selection-end-line="62" selection-end-column="28" />
+              <folding>
+                <element signature="e#0#33#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/algorithms/search.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="110">
+              <caret line="12" selection-start-line="12" selection-end-line="12" />
+              <folding>
+                <element signature="e#169#197#0" expanded="true" />
+              </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file pinned="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/algorithms/simulated_anneling.py">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="1628">
+              <caret line="81" selection-start-line="81" selection-end-line="81" />
+              <folding>
+                <element signature="e#0#13#0" expanded="true" />
               </folding>
             </state>
           </provider>
@@ -46,34 +80,12 @@
         </entry>
       </file>
       <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/algorithms/simulated_anneling.py">
+        <entry file="file://$PROJECT_DIR$/observer/human.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="330">
-              <caret line="81" column="34" selection-start-line="81" selection-start-column="34" selection-end-line="81" selection-end-column="34" />
+            <state relative-caret-position="814">
+              <caret line="41" column="60" selection-start-line="41" selection-start-column="60" selection-end-line="41" selection-end-column="60" />
               <folding>
-                <element signature="e#0#13#0" expanded="true" />
-              </folding>
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/config.yml">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="660">
-              <caret line="30" column="15" selection-start-line="30" selection-start-column="15" selection-end-line="30" selection-end-column="15" />
-            </state>
-          </provider>
-        </entry>
-      </file>
-      <file pinned="false" current-in-tab="true">
-        <entry file="file://$PROJECT_DIR$/tsp.py">
-          <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="371">
-              <caret line="123" column="29" selection-start-line="123" selection-start-column="29" selection-end-line="123" selection-end-column="29" />
-              <folding>
-                <element signature="e#0#11#0" expanded="true" />
-                <element signature="e#3284#4133#0" />
+                <element signature="e#0#19#0" expanded="true" />
               </folding>
             </state>
           </provider>
@@ -90,19 +102,6 @@
   </component>
   <component name="FindInProjectRecents">
     <findStrings>
-      <find>self.progress</find>
-      <find>print_ever</find>
-      <find>n</find>
-      <find>h.</find>
-      <find>comple</find>
-      <find>lenght</find>
-      <find>order</find>
-      <find>buil</find>
-      <find>render</find>
-      <find>la</find>
-      <find>torch.tens</find>
-      <find>torch.ones</find>
-      <find>torch</find>
       <find>initialize_pat</find>
       <find>devices</find>
       <find>dtype32</find>
@@ -120,6 +119,19 @@
       <find>dump_file</find>
       <find>ConstraintS</find>
       <find>datetime</find>
+      <find>scheduled_solve</find>
+      <find>self.summary</find>
+      <find>worse_edge</find>
+      <find>worse_edge_factor</find>
+      <find>_get_modified_weight_tensor</find>
+      <find>modified_weight_tensor</find>
+      <find>weight_matrix</find>
+      <find>_compute_adja</find>
+      <find>ind_vert</find>
+      <find>print</find>
+      <find>Chec</find>
+      <find>clear_out</find>
+      <find>print(t</find>
     </findStrings>
     <replaceStrings>
       <replace />
@@ -137,15 +149,17 @@
         <option value="$PROJECT_DIR$/algorithms/crazy_gen.py#.py" />
         <option value="$PROJECT_DIR$/algorithms/new_gentic.py" />
         <option value="$PROJECT_DIR$/algorithms/crazy_gen.py" />
-        <option value="$PROJECT_DIR$/objects/graph.py" />
         <option value="$PROJECT_DIR$/config.yaml" />
-        <option value="$PROJECT_DIR$/algorithms/search.py" />
-        <option value="$PROJECT_DIR$/algorithms/continuum.py" />
-        <option value="$PROJECT_DIR$/algorithms/simulated_anneling.py" />
         <option value="$PROJECT_DIR$/config.yml" />
         <option value="$PROJECT_DIR$/algorithms/genetic.py" />
         <option value="$PROJECT_DIR$/algorithms/constraint_satisfaction.py" />
         <option value="$PROJECT_DIR$/tsp.py" />
+        <option value="$PROJECT_DIR$/render.py" />
+        <option value="$PROJECT_DIR$/observer/human.py" />
+        <option value="$PROJECT_DIR$/objects/graph.py" />
+        <option value="$PROJECT_DIR$/algorithms/search.py" />
+        <option value="$PROJECT_DIR$/algorithms/simulated_anneling.py" />
+        <option value="$PROJECT_DIR$/algorithms/continuum.py" />
       </list>
     </option>
   </component>
@@ -160,7 +174,6 @@
       <foldersAlwaysOnTop value="true" />
     </navigator>
     <panes>
-      <pane id="Scope" />
       <pane id="ProjectPane">
         <subPane>
           <expand>
@@ -168,10 +181,16 @@
               <item name="tsp_exercise" type="b2602c69:ProjectViewProjectNode" />
               <item name="tsp_exercise" type="462c0819:PsiDirectoryNode" />
             </path>
+            <path>
+              <item name="tsp_exercise" type="b2602c69:ProjectViewProjectNode" />
+              <item name="tsp_exercise" type="462c0819:PsiDirectoryNode" />
+              <item name="algorithms" type="462c0819:PsiDirectoryNode" />
+            </path>
           </expand>
           <select />
         </subPane>
       </pane>
+      <pane id="Scope" />
     </panes>
   </component>
   <component name="PropertiesComponent">
@@ -216,7 +235,7 @@
     <frame x="67" y="25" width="1853" height="1055" extended-state="6" />
     <editor active="true" />
     <layout>
-      <window_info active="true" content_ui="combo" id="Project" order="0" visible="true" weight="0.18579236" />
+      <window_info content_ui="combo" id="Project" order="0" visible="true" weight="0.18579236" />
       <window_info id="Structure" order="1" side_tool="true" weight="0.25" />
       <window_info id="Favorites" order="2" side_tool="true" />
       <window_info anchor="bottom" id="Message" order="0" />
@@ -227,7 +246,7 @@
       <window_info anchor="bottom" id="Inspection" order="5" weight="0.4" />
       <window_info anchor="bottom" id="TODO" order="6" weight="0.32937366" />
       <window_info anchor="bottom" id="Version Control" order="7" />
-      <window_info anchor="bottom" id="Terminal" order="8" visible="true" weight="0.32937366" />
+      <window_info active="true" anchor="bottom" id="Terminal" order="8" visible="true" weight="0.32937366" />
       <window_info anchor="bottom" id="Event Log" order="9" side_tool="true" />
       <window_info anchor="bottom" id="Python Console" order="10" />
       <window_info anchor="right" id="Commander" internal_type="SLIDING" order="0" type="SLIDING" weight="0.4" />
@@ -270,16 +289,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/observer/human.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="550">
-          <caret line="27" column="28" selection-start-line="27" selection-start-column="28" selection-end-line="27" selection-end-column="28" />
-          <folding>
-            <element signature="e#0#19#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/algorithms/algos.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="2134">
@@ -297,38 +306,82 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/objects/graph.py">
+    <entry file="file://$PROJECT_DIR$/config.json" />
+    <entry file="file://$PROJECT_DIR$/algorithms/constraint_satisfaction.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="3014">
-          <caret line="137" column="73" selection-start-line="137" selection-start-column="73" selection-end-line="137" selection-end-column="73" />
+        <state relative-caret-position="-660">
+          <caret line="33" column="37" selection-start-line="33" selection-start-column="37" selection-end-line="33" selection-end-column="37" />
           <folding>
-            <element signature="e#0#33#0" expanded="true" />
+            <element signature="e#46#77#0" expanded="true" />
           </folding>
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/config.json" />
-    <entry file="file://$PROJECT_DIR$/algorithms/continuum.py">
+    <entry file="file://$PROJECT_DIR$/tsp.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="8844">
-          <caret line="411" column="79" selection-start-line="411" selection-start-column="79" selection-end-line="411" selection-end-column="79" />
+        <state relative-caret-position="1232">
+          <caret line="56" lean-forward="true" selection-start-line="56" selection-end-line="56" />
           <folding>
-            <element signature="e#0#31#0" expanded="true" />
+            <element signature="e#0#11#0" expanded="true" />
+            <element signature="e#3284#4133#0" />
           </folding>
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/config.yml">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="660">
-          <caret line="30" column="15" selection-start-line="30" selection-start-column="15" selection-end-line="30" selection-end-column="15" />
+        <state relative-caret-position="440">
+          <caret line="20" column="12" lean-forward="true" selection-start-line="20" selection-start-column="12" selection-end-line="20" selection-end-column="12" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/objects/graph.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1298">
+          <caret line="62" column="28" selection-start-line="62" selection-start-column="28" selection-end-line="62" selection-end-column="28" />
+          <folding>
+            <element signature="e#0#33#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/algorithms/search.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="179">
-          <caret line="104" column="13" selection-start-line="104" selection-start-column="8" selection-end-line="104" selection-end-column="13" />
+        <state relative-caret-position="110">
+          <caret line="12" selection-start-line="12" selection-end-line="12" />
+          <folding>
+            <element signature="e#169#197#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/algorithms/simulated_anneling.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="1628">
+          <caret line="81" selection-start-line="81" selection-end-line="81" />
+          <folding>
+            <element signature="e#0#13#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/observer/human.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="814">
+          <caret line="41" column="60" selection-start-line="41" selection-start-column="60" selection-end-line="41" selection-end-column="60" />
+          <folding>
+            <element signature="e#0#19#0" expanded="true" />
+          </folding>
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/render.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="286">
+          <caret line="13" column="8" selection-start-line="13" selection-start-column="8" selection-end-line="13" selection-end-column="8" />
+          <folding>
+            <element signature="e#0#15#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
@@ -342,33 +395,12 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/algorithms/constraint_satisfaction.py">
+    <entry file="file://$PROJECT_DIR$/algorithms/continuum.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="-660">
-          <caret line="33" column="37" selection-start-line="33" selection-start-column="37" selection-end-line="33" selection-end-column="37" />
+        <state relative-caret-position="107">
+          <caret line="485" column="42" selection-start-line="485" selection-start-column="42" selection-end-line="485" selection-end-column="42" />
           <folding>
-            <element signature="e#46#77#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/algorithms/simulated_anneling.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="330">
-          <caret line="81" column="34" selection-start-line="81" selection-start-column="34" selection-end-line="81" selection-end-column="34" />
-          <folding>
-            <element signature="e#0#13#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
-    <entry file="file://$PROJECT_DIR$/tsp.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="371">
-          <caret line="123" column="29" selection-start-line="123" selection-start-column="29" selection-end-line="123" selection-end-column="29" />
-          <folding>
-            <element signature="e#0#11#0" expanded="true" />
-            <element signature="e#3284#4133#0" />
+            <element signature="e#0#31#0" expanded="true" />
           </folding>
         </state>
       </provider>
