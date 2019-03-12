@@ -43,17 +43,16 @@ def approximate_traveling_salesman(locations, weights, start=None):
 
 
 class SimAnneal(Solver):
-    def __init__(self, locations, edges, T=None, alpha=0.995,
+    def __init__(self, graph, T=None, alpha=0.995,
                  stopping_T=1e-6, stopping_iter=100000, start=None,
                  start_solution=None, get_lucky=False,
-                 luck_limit=int(1e6)):
+                 luck_limit=int(1e6), **kwargs):
         """
         Solver for simulated annealing.
         Start from an approximate solution and propose moves.
         Approximate solution: chose vertex and pick the next
         Args:
-            locations(dict):{name:(x,y)}
-            edges(dict):{('from','to'):weight}
+        :param graph:Graph, instance of graph to solve
             T(float): Starting temp, otherwise <w(approximated_sol)>.
             stopping_iter(int): maximum iteration
             start(str): vert to start from
@@ -64,10 +63,10 @@ class SimAnneal(Solver):
             luck_limit: how many nodes are worth trying before falling back on
                 MVR approach
         """
-        self.locations = locations
-        self.N = len(locations)
-        self.edges = edges
-        self.graph = Graph(locations=locations, weights=edges)
+        self.graph = graph
+        self.locations = self.graph.get_locations()
+        self.N = self.graph.num_vertices
+        self.edges = self.graph.get_edges(get_all=True)
         self.start = start if start is not None else next(
             iter(self.graph)).get_id()
 
@@ -80,16 +79,15 @@ class SimAnneal(Solver):
         self.iter = 1
         self.get_lucky = get_lucky
         self.luck_limit = luck_limit
-        # Initialize the best solution to the one of the greedy algo
-        # [TODO] Also the greedy algo has to be updated if there is no
-        # full connectivity! This turns out to be a constraint satisfaction
-        # problem!
+        print(type(start_solution))
+        print(start_solution is None)
         if start_solution is not None:
             self.curr_solution = start_solution
         else:
+            print('Initializing solution')
             self.curr_solution = self._initialize_solution()
 
-        # The starting temperature is extremely importat:
+        # The starting temperature is extremely important:
         # It has to be fixed according to some length scale,
         # which in turns depends on the number of points
         if isinstance(self.curr_solution, Graph):
@@ -109,14 +107,19 @@ class SimAnneal(Solver):
         else:
             print('The problem instance has no solution. Sad but true')
 
+    @classmethod
+    def from_locations_and_edges(cls, locations, edges):
+        graph = Graph(locations=locations, weights=edges)
+        return SimAnneal(graph)
+
     def _initialize_solution(self):
-        cp = ConstraintSatisfaction(self.locations, self.edges,
-                                    lucky=self.get_lucky,
-                                    luck_limit=self.luck_limit)
+        print('Initializing solution as csp')
+        cp = ConstraintSatisfaction(self.graph, lucky=self.get_lucky, luck_limit=self.luck_limit)
         sol = cp.solve()
         if sol is False:
-            cp = ConstraintSatisfaction(self.locations, self.edges)
+            cp = ConstraintSatisfaction(self.graph)
             sol = cp.solve()
+        print(type(sol))
         return sol
 
     def _p_accept(self, cost):
@@ -184,7 +187,7 @@ class SimAnneal(Solver):
             self.fitness_list.append(self.curr_solution_val)
         return True
 
-    def solve(self):
+    def solve(self, **kwargs):
         """
         Execute the solution
         """

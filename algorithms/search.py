@@ -21,20 +21,18 @@ class TravelingSalesman(Solver):
     [TODO]: Create a Solver class
     """
 
-    def __init__(self, locations, weights, start=None,
-                 limit_actions=None):
+    def __init__(self, graph, start=None,
+                 limit_actions=None, **kwargs):
         """
-        Args: 
-            locations(dict):{name:(x,y)}
-            edges(dict):{('from','to'):weight}
-            start(str): Node for the exploration starting
-            limit_actions(int): max number of neighbors to consider
+        :param graph: Graph, an instance of Graph to solve
+        start(str): Node for the exploration starting
+        limit_actions(int): max number of neighbors to consider
         """
-        self.graph = Graph(locations=locations, weights=weights)
-        self.locations = locations
-        self.total_locations = len(locations)
-        self.weights = weights
-        self.edges = algos.sort_edges(weights, locations)
+        self.graph = graph
+        self.locations = self.graph.get_locations()
+        self.total_locations = len(self.locations)
+        self.weights = self.graph.get_edges(get_all=True)
+        self.edges = algos.sort_edges(self.weights, self.locations)
         # Note: we represent states as tuples,
         # as these are hashable
         if start is None:
@@ -44,6 +42,11 @@ class TravelingSalesman(Solver):
         Problem.__init__(self, initial, None)
         self.start_neighbors = self._sorted_neighbors_from_start()
         self.limit_actions = limit_actions
+
+    @classmethod
+    def from_locations_and_weights(cls, locations, weights):
+        graph = Graph(locations=locations, weights=weights)
+        return TravelingSalesman(graph)
 
     def actions(self, A):
         """
@@ -99,7 +102,7 @@ class TravelingSalesman(Solver):
         """
         return len(state) == self.graph.num_vertices
 
-    def solve(self):
+    def solve(self, **kwargs):
         """
         Execute the solution
         """

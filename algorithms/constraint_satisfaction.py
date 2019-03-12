@@ -2,8 +2,6 @@
 
 from objects.graph import Graph
 from problems.abstract_problems import Problem, Node
-# [TODO] Move position of astar_search in more appropriate position!
-from algorithms.search import astar_search  # This import is not used anymore
 import numpy as np
 
 
@@ -13,18 +11,18 @@ class ConstraintSatisfaction(Problem):
     using some heuristics.
     """
 
-    def __init__(self, locations, edges, lucky=False, luck_limit=np.Inf):
+    def __init__(self, graph, lucky=False, luck_limit=np.Inf, **kwargs):
         """
         The state of the problem is represented by a tuple of two tuples.
         It is assumed that locations and edges satisfy some basics rules:
         -The graph is connected
         -All the edges have at least two connections
         """
-        self.locations = locations
-        self.edges = edges
-        self.total_locations = len(locations)
+        self.graph = graph
+        self.locations = self.graph.get_locations()
+        self.edges = self.graph.get_edges(get_all=True)
+        self.total_locations = graph.num_vertices
         self.all_locations = set(self.locations.keys())
-        self.graph = Graph(locations=locations, weights=edges)
         self.unique_edges = self.graph.get_edges()
         self.vertex_connections = self.graph.get_vertices_connections()
         self.lucky = lucky

@@ -36,7 +36,7 @@ class PathRepresentationModel(nn.Module):
     """
 
     def __init__(self, graph, worse_edge_factor=3, sigma=0.05,
-                 device=None, dtype=None):
+                 device=None, dtype=None, **kwargs):
 
         # For device compatibility
         if isinstance(device, torch.device):
@@ -284,7 +284,7 @@ class Continuum:
     # TODO add docstrings
     # TODO implement a routine that does the training internally
     # TODO implement visualization
-    def __init__(self, graph):
+    def __init__(self, graph, **kwargs):
         if not isinstance(graph, Graph):
             raise ValueError('The class must be initialized with a Graph. {} given'.format(type(graph)))
         self.graph = graph
@@ -409,7 +409,7 @@ class Continuum:
 
     def solve(self, col_violations_cost=1., row_violations_cost=1.,
               length_cost=1., entropy_cost=1., snapshots=10,
-              device=torch.device('cuda' if torch.cuda.is_available() else torch.device('cpu')),
+              device=torch.device('cuda' if torch.cuda.is_available() else 'cpu'),
               dtype=torch.float32,
               torch_optimizer=torch.optim.Adam, lr=0.005,
               iterations=50000, worse_edge_factor=3., sigma=0.05,
@@ -435,6 +435,7 @@ class Continuum:
         :return: the solution graph
         """
 
+        device = torch.device(device) or torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         if (self.model is None) or (self.model.device != device) or (self.model.dtype != dtype):
             print('Instantiate a new model')
             self.model = self.get_model(worse_edge_factor=worse_edge_factor, sigma=sigma,

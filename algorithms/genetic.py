@@ -11,12 +11,12 @@ from algorithms.constraint_satisfaction import ConstraintSatisfaction
 
 
 class Genetic():
-    def __init__(self, locations, edges, population_size=100,
+    def __init__(self, graph, population_size=100,
                  random_size=20, elite_size=None,
-                 luck_ratio=0.2, power=1, coeff=1,
+                 luck_ratio=0.2,
                  mutation_rate=0.005, super_mutant_rate=0.05,
                  generations=10,
-                 hybrid=False):
+                 hybrid=False, **kwargs):
         """
         Solver for TSP with genetic algorithm.
         Start from a population and breed the fittest individuals.
@@ -26,8 +26,7 @@ class Genetic():
         is going to be represented as a sequence of N consecutive edges.
         By mutating this property will be lost.
         Args:
-            locations(dict):{name:(x,y)}
-            edges(dict):{('from','to'):weight}
+            :param graph: Graph, instance of graph to solve
             population_size(int): n of individuals in the population
             random_size(int): n of indiduals that can reproduce
             elite_size(int): fittest individuals that get cloned.
@@ -37,17 +36,12 @@ class Genetic():
             generations(int): how many generations
             hybrid(bool): If True will start from a population obtained
                 muting the simulated annealing solution
-            power(int): not_visited_cost=(v-1)**power
-                with power>1 will penalize more
-                having "hubs" of locations visited too often
-            coeff(int): the fitness will be evaluated as
-                1/(route_length + coeff*not_visited_cost)
         """
         # Initialize the graph to study
-        self.locations = locations
-        self.edges = edges
+        self.graph = graph
+        self.locations = self.graph.get_locations()
+        self.edges = self.graph.get_edges(get_all=True)
         self.edge_sorter = {val: i for i, val in enumerate(self.edges.keys())}
-        self.graph = Graph(locations=self.locations, weights=self.edges)
         self.location_list = self.graph.adding_order
         self.number_of_locations = len(self.location_list)
 
@@ -65,11 +59,14 @@ class Genetic():
             print("Resetting luck_ratio to ", self.luck_ratio)
         self.mutation_rate = mutation_rate
         self.super_mutant_rate = super_mutant_rate
-        self.power = power
-        self.coeff = coeff
         self.mutations = 0
         self.progress = []
         self.best_route = []
+
+    @classmethod
+    def from_locations_and_edges(cls, locations, edges):
+        graph = Graph(locations=locations, weights=edges)
+        return Genetic(graph)
 
     def _mutant_schedule(self, generation):
         sigma = self.generations**2/10.
@@ -356,7 +353,7 @@ class Genetic():
         next_generation = self._sort_population(next_generation)
         return next_generation
 
-    def solve(self, plot=False, pr=False):
+    def solve(self, plot=False):
         """
         Solve the problem instance, with the set of parameters given at instantiation.
         Args:
@@ -401,8 +398,7 @@ class Genetic():
                                    stopping_iter=int(1e5),
                                    get_lucky=True)
         else:
-            pre_solver = ConstraintSatisfaction(self.locations, self.edges,
-                                                lucky=True, luck_limit=int(1e5))
+            pre_solver = ConstraintSatisfaction(self.graph, lucky=True, luck_limit=int(1e5))
         pre_solution = pre_solver.solve()
         d = []
         for i in range(-1,len(pre_solution.adding_order)-1):

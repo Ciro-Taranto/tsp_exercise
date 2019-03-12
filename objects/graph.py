@@ -134,6 +134,9 @@ class Graph:
     def get_vertices(self):
         return self.vert_dict.keys()
 
+    def get_locations(self):
+        return {key: val.location for key, val in self.vert_dict.items()}
+
     def get_vertices_connections(self, sorted=False):
 
         all_connections = {key: {n.get_id(): n.get_weight(val)

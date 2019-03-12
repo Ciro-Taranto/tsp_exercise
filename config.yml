@@ -1,0 +1,52 @@
+# solver can be one of 'search'  'annealing'  'genetic  'continuum'
+solver: 'continuum'
+
+# parameters for the solver initialization
+solver_initialization:
+
+  search:
+    start:
+    limit_actions: !!python/none
+
+  genetic:
+    population_size: 100
+    random_size: 20
+    luck_ratio: 0.2
+    elite_size:
+    mutation_rate: 0.005
+    super_mutant_rate: 0.05
+    generations: 10
+    hybrid: false
+
+  annealing:
+    T:
+    alpha: 0.9995 
+    stopping_T: .00000001
+    stopping_iter: 100000
+    start:
+    start_solution:
+    get_lucky: true
+    luck_limit: 1000000
+
+  continuum: {}
+
+solver_execution:
+  search: {}
+  genetic:
+    plot: true
+  annealing: {}
+  continuum:
+    col_violations_cost: 1.
+    row_violations_cost: 1.
+    length_cost: 1.
+    entropy_cost: 1.
+    snapshots: 10
+    device: cpu
+    dtype: 32
+    torch_optimizer: Adam
+    lr: 0.005
+    iterations: 50000
+    worse_edge_factor: 3.
+    sigma: 0.05
+    from_fresh: false
+    append: true
