@@ -366,7 +366,7 @@ class Genetic():
         start = time.time()
         for i in range(1,self.generations+1):
             if i % self.print_every == 0:
-                self._plot_and_print(pop)
+                # self._plot_and_print(pop)
                 print("Time per generation={}".format((time.time()-start)/self.print_every))
                 start = time.time()
             pop = self._next_generation(pop, self._mutant_schedule(i))

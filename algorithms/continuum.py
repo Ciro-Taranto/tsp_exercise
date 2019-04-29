@@ -6,9 +6,8 @@ from torch.autograd import Variable
 from torch import nn
 import matplotlib.pyplot as plt
 import seaborn as sns
-import pandas as pd
 from IPython.display import display, clear_output
-
+from torch.nn import functional as nnf
 
 def column_normalize(array):
     norm = np.sum(array, axis=0)
@@ -36,7 +35,7 @@ class PathRepresentationModel(nn.Module):
     """
 
     def __init__(self, graph, worse_edge_factor=3, sigma=0.05,
-                 device=None, dtype=None, **kwargs):
+                 device=None, dtype=None, random=False, **kwargs):
 
         # For device compatibility
         if isinstance(device, torch.device):
@@ -63,15 +62,14 @@ class PathRepresentationModel(nn.Module):
         self.worse_edge_factor = worse_edge_factor
         self.modified_weight_tensor = self._get_modified_weight_tensor(worse_edge_factor)
         # One needs a normalization constant for the path cost, to avoid that it is the only component
-        self.path_normalization = torch.sum(self.modified_weight_tensor) / self.graph.num_vertices
+        # self.path_normalization = torch.sum(self.modified_weight_tensor) / self.graph.num_vertices
+        self.path_normalization = self.modified_weight_tensor.mean()
         self.complete_tensor = None
 
-        self.variable_tensor = nn.Parameter(self.initialize_variable_tensor())
+        self.variable_tensor = nn.Parameter(self.initialize_variable_tensor(random=random))
 
         path_tensor = self.forward()
-        self.violations_normalization = torch.sum(torch.abs(torch.sum(path_tensor, dim=1)
-                                   - torch.ones(path_tensor.shape[0],
-                                                device=self.device, dtype=self.dtype)))
+        self.violations_normalization = torch.sum((torch.sum(path_tensor, dim=1) - 1) ** 2.)
         self.violations_normalization = self.violations_normalization.detach()
         self.summary = None
 
@@ -80,7 +78,7 @@ class PathRepresentationModel(nn.Module):
     def forward(self):
         return self.get_working_tensor(self.variable_tensor)
 
-    def initialize_variable_tensor(self, start=None):
+    def initialize_variable_tensor(self, start=None, random=False):
         """
         Initialization of the Variable tensor.
         It is initialized with the sqrt of the initial path matrix.
@@ -89,7 +87,8 @@ class PathRepresentationModel(nn.Module):
         :param start: from which location to start
         :return: torch.tensor, with requires_grad=True.
         """
-        path_matrix = np.sqrt(self.initialize_path_matrix(start=start))
+        # path_matrix = np.sqrt(self.initialize_path_matrix(start=start, random=random))
+        path_matrix = np.log(self.initialize_path_matrix(start=start, random=random) + 1e-6)
         return Variable(torch.tensor(path_matrix, device=self.device, requires_grad=True, dtype=self.dtype))
 
     def reset_variable_tensor(self):
@@ -103,7 +102,8 @@ class PathRepresentationModel(nn.Module):
         :param variable_tensor: torch.tensor, with requires_grad=True
         :return: torch.tensor
         """
-        return variable_tensor ** 2
+        # return variable_tensor ** 2
+        return nnf.softmax(variable_tensor, dim=0)
 
     def _get_modified_weight_tensor(self, worse_edge_factor):
         worse_edge = np.max(self.graph.weight_matrix)
@@ -145,15 +145,20 @@ class PathRepresentationModel(nn.Module):
         max is differentiable instead, and this is what we will use.
         """
         # return self.tensor_average_path_cost(path_tensor)
-        softmax = lambda t: torch.exp(-(t - torch.max(t)) ** 2. / self.sigma)
-        ew = torch.tensor(0, device=self.device, dtype=self.dtype)
-        for i in torch.arange(-1, path_tensor.shape[1] - 1):
-            from_column = softmax(path_tensor[:, i])
-            to_column = softmax(path_tensor[:, i + 1])
-            link_probabilities = torch.ger(from_column, to_column)
-            link_probabilities = link_probabilities / (torch.sum(link_probabilities) + epsilon)
-            ew += torch.sum(link_probabilities * self.modified_weight_tensor)/self.path_normalization
-        return ew
+        # softmax = lambda t: torch.exp(-(t - torch.max(t)) ** 2. / self.sigma)
+        # ew = torch.tensor(0, device=self.device, dtype=self.dtype)
+        sm_x = path_tensor
+        ew = sm_x[:, :-1].t().mm(self.modified_weight_tensor.mm(sm_x[:, 1:])).sum()
+        ew += sm_x[:, -1:].t().mm(self.modified_weight_tensor.mm(sm_x[:, :1]))[0, 0]
+
+        # for i in torch.arange(-1, path_tensor.shape[1] - 1):
+        #     from_column = sm_x[:, i]
+        #     to_column = sm_x[:, i + 1]
+        #     to_column.mm(self.modified_weight_tensor.mm(from_column))
+        #     link_probabilities = torch.ger(from_column, to_column)
+        #     link_probabilities = link_probabilities / (torch.sum(link_probabilities) + epsilon)
+        #     ew += torch.sum(link_probabilities * self.modified_weight_tensor)/self.path_normalization
+        return ew / self.path_normalization
 
     def tensor_entropy(self, path_tensor, epsilon=1e-6):
         """
@@ -162,8 +167,11 @@ class PathRepresentationModel(nn.Module):
         :param epsilon:float, small parameter to avoid log(0) [good old physics memories]
         :return: torch.tensor, scalar containing the relative entropy of the path tensor
         """
-        epsilon = epsilon * torch.ones(path_tensor.shape, device=self.device, dtype=self.dtype)
-        total_entropy = -torch.sum(torch.log(path_tensor + epsilon) * path_tensor)
+        # softmax = nnf.softmax
+        sm_x = path_tensor
+        # epsilon = epsilon * torch.ones(path_tensor.shape, device=self.device, dtype=self.dtype)
+        # total_entropy = -torch.sum(torch.log(path_tensor + epsilon) * path_tensor)
+        total_entropy = -torch.sum(torch.log(sm_x + epsilon) * sm_x)
         return total_entropy / (path_tensor.shape[0] * self.maxent)
 
     def tensor_violations(self, path_tensor, dim=1):
@@ -176,9 +184,8 @@ class PathRepresentationModel(nn.Module):
         """
         if dim not in [0, 1]:
             raise ValueError('dim must be 0 or 1. {} given'.format(dim))
-        return torch.sum(torch.abs(torch.sum(path_tensor, dim=dim)
-                                   - torch.ones(path_tensor.shape[0],
-                                                device=self.device, dtype=self.dtype)))/self.violations_normalization
+        # ((path_tensor.sum(dim) - 1) ** 2).sum()
+        return ((path_tensor.sum(dim) - 1) ** 2.).sum() / self.violations_normalization
 
     def loss(self, col_violations_cost=1., row_violations_cost=1.,
              length_cost=1., entropy_cost=1., append=True):
@@ -197,13 +204,14 @@ class PathRepresentationModel(nn.Module):
         path_tensor = self.forward()
         row_evaluated_violations = self.tensor_violations(path_tensor, dim=1)
         column_evaluated_violations = self.tensor_violations(path_tensor, dim=0)
-        path_evaluated_cost = self.tensor_average_path_cost(path_tensor)
+        path_evaluated_cost = torch.tensor(0, device=self.device, dtype=self.dtype)# self.tensor_average_path_cost(path_tensor)
         path_evaluated_extra_cost = self.tensor_extra_cost(path_tensor)
         entropy_evaluated_cost = self.tensor_entropy(path_tensor)
         lo = col_violations_cost * column_evaluated_violations
         lo += row_violations_cost * row_evaluated_violations
-        lo += length_cost * (entropy_evaluated_cost * path_evaluated_cost
-                             + (1.-entropy_evaluated_cost) * path_evaluated_extra_cost)
+        # lo += length_cost * (entropy_evaluated_cost * path_evaluated_cost
+        #                      + (1.-entropy_evaluated_cost) * path_evaluated_extra_cost)
+        lo += length_cost * path_evaluated_extra_cost
         lo += entropy_cost * entropy_evaluated_cost
         if append:
             self.summary = torch.cat((self.summary, torch.tensor([[
@@ -216,7 +224,7 @@ class PathRepresentationModel(nn.Module):
     #         Functions working with numpy         #
     ################################################
 
-    def initialize_path_matrix(self, start=None):
+    def initialize_path_matrix(self, start=None, random=False):
         """
         Initialize the path matrix representing a "solution" of the TSP to be optimized
 
@@ -225,6 +233,10 @@ class PathRepresentationModel(nn.Module):
             P_{j,i+1} = \sum M_{j,k} P_{k,i}
             where P_{k,0} is \delta_{k, start} and M_{j,k} is the column normalized adjacency matrix
         """
+        if random is True:
+            r = np.random.random((self.graph.num_vertices, self.graph.num_vertices))
+            return r/np.sum(r, axis=0)
+
         initialization_vector = np.zeros(self.graph.num_vertices)
         if isinstance(start, str):
             initialization_vector[self.graph.vert_ind[start]] = 1
@@ -307,9 +319,9 @@ class Continuum:
         self.scheduled_params = None
         self.complete_tensor = None
 
-    def get_model(self, device, dtype, worse_edge_factor=3., sigma=0.05):
+    def get_model(self, device, dtype, worse_edge_factor=3., sigma=0.05, random=False):
         return PathRepresentationModel(self.graph, worse_edge_factor=worse_edge_factor, sigma=sigma,
-                                       device=device, dtype=dtype)
+                                       device=device, dtype=dtype, random=random)
 
     def alternating_weights(self, iterations, residual=0.1):
         """
@@ -351,6 +363,7 @@ class Continuum:
                         iterations=50000, worse_edge_factor=3., sigma=0.05,
                         schedule=static_weights,
                         from_fresh=False, append=True,
+                        random=False,
                         **kwargs):
         """
         'solve' the TSP instance associated to the graph by minimizing the cost of the representation tensor
@@ -369,6 +382,7 @@ class Continuum:
         :param schedule: np.array or callable, define the evolution of the weights in the training
         :param from_fresh: bool, continue training or use a brand new tensor
         :param append: bool, if True the loss will be appended in a tensor
+        :param random: bool, if True, completely random initialization
         :param kwargs: parameters to pass to the torch optimizer
         :return: the solution graph
         """
@@ -395,7 +409,7 @@ class Continuum:
                 (self.model.dtype != dtype) or (self.model.worse_edge_factor != worse_edge_factor)):
             print('Instantiate a new model')
             self.model = self.get_model(worse_edge_factor=worse_edge_factor, sigma=sigma,
-                                        device=device, dtype=dtype)
+                                        device=device, dtype=dtype, random=random)
 
         if from_fresh:
             self.model.reset_variable_tensor()
@@ -475,52 +489,6 @@ class Continuum:
                                     iterations=iterations, worse_edge_factor=worse_edge_factor, sigma=sigma,
                                     from_fresh=from_fresh, append=append,
                                     **kwargs)
-        try:
-            device = torch.device(device)
-        except:
-            device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        dtype = torch.float64 if dtype == 64 else torch.float32
-
-        if (self.model is None) or (self.model.device != device) or (self.model.dtype != dtype):
-            print('Instantiate a new model')
-            self.model = self.get_model(worse_edge_factor=worse_edge_factor, sigma=sigma,
-                                        device=device, dtype=dtype)
-        if from_fresh:
-            self.model.reset_variable_tensor()
-            self.snapshots = None
-
-        print('Initial path cost:', self.model.tensor_average_path_cost(self.model()))
-        print('Initial path cost 2',self.model.tensor_extra_cost(self.model()))
-        print('Initial entropy cost',self.model.tensor_entropy(self.model()))
-        print('Initial violations cost',self.model.tensor_violations(self.model(), dim=1)
-              + self.model.tensor_violations(self.model(), dim=0))
-
-        self.snapshots = self.snapshots or []
-        optimizer = torch_optimizer(self.model.parameters(), lr=lr, **kwargs)
-        every = max(iterations // snapshots, 1)
-        for i in range(iterations):
-            optimizer.zero_grad()
-            loss = self.model.loss(col_violations_cost=col_violations_cost,
-                                   row_violations_cost=row_violations_cost,
-                                   length_cost=length_cost,
-                                   entropy_cost=entropy_cost, append=append)
-            if i % every == 0:
-                # Syncronization step! You might not want it...
-                self.snapshots.append(self.model().data)
-            loss.backward()
-            optimizer.step()
-        self.complete_tensor = self.model()
-        self.summary = self.model.summary
-
-        print('Final path cost:', self.model.tensor_average_path_cost(self.model()))
-        print('Final path cost 2', self.model.tensor_extra_cost(self.model()))
-        print('Final entropy cost', self.model.tensor_entropy(self.model()))
-        print('Final violations cost', self.model.tensor_violations(self.model(), dim=1)
-              + self.model.tensor_violations(self.model(), dim=0))
-        # if self.model.summary.data.shape[0] > 0:
-        #     self.summary = pd.DataFrame(np.array(self.model.summary.cpu().data),
-        #                                 columns=['rows', 'cols', 'path_smooth', 'path_sharp', 'entropy'])
-        return self.complete_tensor
 
     def get_solution_graph(self):
         """
@@ -541,9 +509,11 @@ class Continuum:
         except KeyError:
             return order
 
-    def show_evolution(self, cmap='Blues', persist=False, sleep=.5):
-        arr = np.array(self.complete_tensor.cpu().data)
+    def show_evolution(self, cmap='Blues', persist=False, sleep=.5, disordered=False):
+        arr = self.complete_tensor.cpu().detach().numpy()
         order = np.array([np.argmax(arr[:, i]) for i in range(arr.shape[1])])
+        if disordered:
+            order = np.arange(arr.shape[1])
 
         # order = np.array([self.graph.vert_ind[v] for v in self._get_used_locations(self.complete_tensor)], dtype=int)
         for state in self.snapshots:

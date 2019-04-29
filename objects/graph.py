@@ -79,19 +79,17 @@ class Graph:
 
     @property
     def adjacency_matrix(self):
-        if hasattr(self,'adj'):
-            return self.adj
-        else:
-            self.adj = self._compute_adjacency_matrix()
-            return self.adj.copy()
+        adjacency = np.zeros((len(self.vert_dict),len(self.vert_dict)))
+        for edge, w in self.get_edges(get_all=True).items():
+            adjacency[self.vert_ind[edge[0]], self.vert_ind[edge[1]]] = 1
+        return adjacency
 
     @property
     def weight_matrix(self):
-        if hasattr(self,'weight'):
-            return self.weight
-        else:
-            self.weight = self._compute_adjacency_matrix(weight=True)
-            return self.weight.copy()
+        adjacency = np.zeros((len(self.vert_dict), len(self.vert_dict)))
+        for edge, w in self.get_edges(get_all=True).items():
+            adjacency[self.vert_ind[edge[0]], self.vert_ind[edge[1]]] = w
+        return adjacency
 
     @classmethod
     def from_locations_eges(cls, locations, weights):
@@ -186,29 +184,6 @@ class Graph:
                     edges[(vert_id, neighbor_id)
                           ] = vert.get_weight(neighbor)
         return edges
-
-    def _compute_adjacency_matrix(self, weight=False):
-        """
-        Gives the adjacency matrix associated to the graph.
-        For this scope the weights are not used.
-        The graph is supposed to be directed.
-
-        We want to use it as acting on a column vector.
-        v_i^{t+1} = \sum_j M_{ij} v_j^t
-        Meaning that if v_i^t are the location at step t, at step t+1
-        I can go to v_i^{t+1}.
-
-        To obtain this if (from,to) is in the list of edges it must be set M_{to,from}!=0
-        Normalization and probabilites are left aside for the moment
-        :return: np.array, adjacency matrix
-        """
-        print('Computing adj...')
-        adjacency = np.zeros((len(self.vert_dict),len(self.vert_dict)))
-        for edge, w in self.get_edges(get_all=True).items():
-            adjacency[self.vert_ind[edge[1]], self.vert_ind[edge[0]]]= w if weight else 1
-        return adjacency
-
-
 
     def build_graph_solution(self, order):
         g = Graph()

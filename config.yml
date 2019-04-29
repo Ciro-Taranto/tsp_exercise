@@ -9,20 +9,20 @@ solver_initialization:
     limit_actions: !!python/none
 
   genetic:
-    population_size: 100
-    random_size: 20
+    population_size: 2000
+    random_size: 100
     luck_ratio: 0.2
-    elite_size:
-    mutation_rate: 0.005
+    elite_size: 10
+    mutation_rate: 0.01
     super_mutant_rate: 0.05
-    generations: 10
+    generations: 50
     hybrid: false
 
   annealing:
     T:
     alpha: 0.9995 
     stopping_T: .00000001
-    stopping_iter: 100000
+    stopping_iter: 1000000
     start:
     start_solution:
     get_lucky: true

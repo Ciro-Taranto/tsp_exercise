@@ -218,8 +218,8 @@ def best_first_graph_search(problem, f):
         i += 1
         if i % 10000 == 0:
             clear_output(wait=True)
-            display(print('Checked already {} nodes'.format(i)))
-            display(print(node.state))
+            display('Checked already {} nodes'.format(i))
+            display(node.state)
 
     print('Solution could not be found within the limits imposed')
     return False
